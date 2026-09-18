@@ -12,14 +12,12 @@
   ],
   "scripts": {
     "start:all": "node scripts/start-all.js",
+    "start:a": "npm start --prefix services/team-a-eligibility",
+    "start:b": "npm start --prefix services/team-b-ranking",
+    "start:c": "npm start --prefix services/team-c-placement",
+    "start:d": "npm start --prefix services/team-d-portal",
     "seed": "node scripts/seed-data.js",
     "health": "node scripts/health-check.js",
-    "start:a": "cd services/team-a-eligibility && npm start",
-    "start:b": "cd services/team-b-ranking && npm start",
-    "start:c": "cd services/team-c-placement && npm start",
-    "start:d": "cd services/team-d-portal && npm start",
-    "test:c": "cd services/team-c-placement && npm test"
-  },
-  "keywords": ["placement", "eligibility", "analytics", "academic"],
-  "license": "MIT"
+    "test": "npm test --workspaces"
+  }
 }

@@ -19,6 +19,7 @@ const ReportController      = require('./src/controllers/reportController');
 const DriveController       = require('./src/controllers/driveController');
 const StudentController     = require('./src/controllers/studentController');
 const CompanyController     = require('./src/controllers/companyController');
+const AnnouncementController= require('./src/controllers/announcementController');
 
 // Routes
 const buildRoutes = require('./src/routes');
@@ -50,6 +51,7 @@ async function startServer() {
     driveController:       new DriveController(db),
     studentController:     new StudentController(db),
     companyController:     new CompanyController(db),
+    announcementController:new AnnouncementController(db, sseService)
   };
 
   // Mount Routes

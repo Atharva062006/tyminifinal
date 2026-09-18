@@ -3,12 +3,13 @@
     "DRV001": {
       "drive_id": "DRV001",
       "company_id": "COM001",
-      "title": "SDE Intern 2026",
+      "title": "SDE Intern 2026 Updated",
       "criteria_json": "{\"min_cgpa\":7,\"max_backlogs\":1,\"branches\":[\"CSE\",\"IT\"],\"min_attendance\":75,\"required_skills\":[\"JavaScript\",\"Python\"]}",
       "seats": 10,
       "package": 600000,
       "state": "OPEN",
-      "version": 1
+      "version": 1,
+      "updated_at": "2026-09-17T10:05:00.132Z"
     },
     "DRV002": {
       "drive_id": "DRV002",
@@ -47,6 +48,6 @@
   },
   "meta": {
     "count": 4,
-    "lastModified": "2026-08-20T10:06:09.879Z"
+    "lastModified": "2026-09-17T10:29:50.569Z"
   }
 }

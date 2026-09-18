@@ -13,11 +13,11 @@ async function seed() {
 
   console.log('Seeding students...');
   const students = [
-    { student_id: 'STU001', name: 'Alice Sharma',  email: 'alice@rit.edu',  branch: 'CSE', cgpa: 8.9, backlogs: 0, attendance: 88, skills: ['JavaScript', 'Python', 'SQL'] },
-    { student_id: 'STU002', name: 'Bob Patil',     email: 'bob@rit.edu',    branch: 'CSE', cgpa: 7.4, backlogs: 1, attendance: 75, skills: ['Java', 'Spring', 'MySQL'] },
-    { student_id: 'STU003', name: 'Carol Mehta',   email: 'carol@rit.edu',  branch: 'IT',  cgpa: 9.1, backlogs: 0, attendance: 92, skills: ['React', 'Node.js', 'MongoDB'] },
-    { student_id: 'STU004', name: 'Dev Kumar',     email: 'dev@rit.edu',    branch: 'CSE', cgpa: 6.8, backlogs: 2, attendance: 70, skills: ['C++', 'DSA'] },
-    { student_id: 'STU005', name: 'Eva Joshi',     email: 'eva@rit.edu',    branch: 'ENTC', cgpa: 8.2, backlogs: 0, attendance: 85, skills: ['Python', 'ML', 'TensorFlow'] },
+    { student_id: 'STU001', name: 'Aarav Sharma',  email: 'aarav@rit.edu',  branch: 'CSE', cgpa: 8.9, backlogs: 0, attendance: 88, skills: ['JavaScript', 'Python', 'SQL'] },
+    { student_id: 'STU002', name: 'Rohan Patil',    email: 'rohan@rit.edu',  branch: 'CSE', cgpa: 7.4, backlogs: 1, attendance: 75, skills: ['Java', 'Spring', 'MySQL'] },
+    { student_id: 'STU003', name: 'Ananya Mehta',  email: 'ananya@rit.edu', branch: 'IT',  cgpa: 9.1, backlogs: 0, attendance: 92, skills: ['React', 'Node.js', 'MongoDB'] },
+    { student_id: 'STU004', name: 'Devraj Kumar',  email: 'devraj@rit.edu', branch: 'CSE', cgpa: 6.8, backlogs: 2, attendance: 70, skills: ['C++', 'DSA'] },
+    { student_id: 'STU005', name: 'Isha Joshi',    email: 'isha@rit.edu',   branch: 'ENTC', cgpa: 8.2, backlogs: 0, attendance: 85, skills: ['Python', 'ML', 'TensorFlow'] },
   ];
   for (const s of students) {
     await db.table('students').insert(s).catch(() => {});

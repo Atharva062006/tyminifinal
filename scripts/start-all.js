@@ -7,9 +7,9 @@ const path = require('path');
 
 const services = [
   { name: 'Team A - Eligibility', dir: 'services/team-a-eligibility', port: 3001 },
-  { name: 'Team B - Ranking',     dir: 'services/team-b-ranking',     port: 3002 },
-  { name: 'Team C - Placement',   dir: 'services/team-c-placement',   port: 3003 },
-  { name: 'Team D - Portal',      dir: 'services/team-d-portal',      port: 3000 },
+  { name: 'Team B - Ranking', dir: 'services/team-b-ranking', port: 3002 },
+  { name: 'Team C - Placement', dir: 'services/team-c-placement', port: 3003 },
+  { name: 'Team D - Portal', dir: 'services/team-d-portal', port: 3000 },
 ];
 
 const root = path.resolve(__dirname, '..');

@@ -3,21 +3,139 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>APNILEAP — Placement Portal</title>
-  <meta name="description" content="RIT Campus Placement Eligibility and Analytics Platform" />
+  <title>RIT — Campus Placement & Eligibility System</title>
+  <meta name="description" content="RIT Campus Placement Eligibility, Graph Ranking and Analytics Platform" />
+  <link rel="icon" href="assets/logo.jpg" type="image/jpeg" />
+  
+  <!-- Modern Typography (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- CSS Design System & Components -->
   <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
 </head>
 <body>
   <div id="app">
-    <header>
-      <h1>APNILEAP Placement Portal</h1>
-      <nav id="main-nav"><!-- Team D renders role-aware nav here --></nav>
-    </header>
-    <main id="main-content">
-      <!-- Team D SPA content mounts here -->
-      <p>Loading...</p>
-    </main>
+    <div id="header-container"></div>
+    <div id="app-body">
+      <main id="main-content">
+        <div class="loading-container">
+          <div class="spinner"></div>
+          <p>Initialising RIT Placement Portal...</p>
+        </div>
+      </main>
+      <footer id="footer">
+        <div class="footer-container">
+          <div class="footer-grid">
+            
+            <!-- Section 1: RIT Placement Portal Branding -->
+            <div class="footer-col footer-brand-col">
+              <div class="footer-brand-title">Rajarambapu Institute of Technology (RIT)</div>
+              <div class="footer-brand-sub">Campus Placement & Eligibility Portal</div>
+              <p class="footer-brand-desc">
+                An autonomous institute affiliated to Shivaji University, Kolhapur. Approved by AICTE, Accredited by NAAC with 'A+' Grade. Dedicated to student career excellence and institutional recruitment transparency.
+              </p>
+            </div>
+
+            <!-- Section 2: Quick Links -->
+            <div class="footer-col">
+              <h4>Quick Links</h4>
+              <ul>
+                <li><a href="#/">Dashboard</a></li>
+                <li><a href="#/student/drives">Placements</a></li>
+                <li><a href="#/student/applications">Applications</a></li>
+                <li><a href="#/student/rankings">Rankings</a></li>
+                <li><a href="#/faculty/reports">Reports</a></li>
+              </ul>
+            </div>
+
+            <!-- Section 3: Important -->
+            <div class="footer-col">
+              <h4>Important</h4>
+              <ul>
+                <li><a href="https://ritindia.edu" target="_blank" rel="noopener">Placement Cell</a></li>
+                <li><a href="https://ritindia.edu" target="_blank" rel="noopener">Career Guidance</a></li>
+                <li style="color: #cbd5e1; font-size: 0.85rem; line-height: 1.4;">
+                  <strong>Contact:</strong><br>
+                  Training & Placement Cell, RIT Rajaramnagar, Islampur, Sangli, Maharashtra 415414
+                </li>
+              </ul>
+            </div>
+
+            <!-- Section 4: System -->
+            <div class="footer-col">
+              <h4>System</h4>
+              <ul>
+                <li><a href="#/admin/system">Portal Status (Live SSE)</a></li>
+                <li><a href="#/student/notifications">Notification Center</a></li>
+                <li><a href="javascript:void(0)" onclick="window.toast.info('RIT Data Privacy Policy: Cryptographically secured JSON DBMS with user isolation.')">Privacy Policy</a></li>
+                <li><a href="javascript:void(0)" onclick="window.toast.info('RIT Terms of Service: Institutional placement guidelines apply.')">Terms of Service</a></li>
+              </ul>
+            </div>
+
+          </div>
+
+          <div class="footer-bottom">
+            <div>© 2026 Rajarambapu Institute of Technology. All rights reserved.</div>
+            <div>Powered by Team A + Team B + Team C + Team D Microservice Engine</div>
+          </div>
+        </div>
+      </footer>
+    </div>
   </div>
+
+  <div id="modal-container"></div>
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Core Services & Reactive Store -->
+  <script src="js/api.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/sse.js"></script>
+
+  <!-- Reusable UI Components -->
+  <script src="js/components/toast.js"></script>
+  <script src="js/components/loading.js"></script>
+  <script src="js/components/modal.js"></script>
+  <script src="js/components/navbar.js"></script>
+  <script src="js/components/statCard.js"></script>
+  <script src="js/components/statusBadge.js"></script>
+  <script src="js/components/timeline.js"></script>
+  <script src="js/components/dataTable.js"></script>
+  <script src="js/components/charts.js"></script>
+
+  <!-- Views: Persona Login -->
+  <script src="js/views/loginView.js"></script>
+
+  <!-- Views: Student Portal -->
+  <script src="js/views/student/dashboardView.js"></script>
+  <script src="js/views/student/drivesView.js"></script>
+  <script src="js/views/student/driveDetailView.js"></script>
+  <script src="js/views/student/applicationsView.js"></script>
+  <script src="js/views/student/applicationDetailView.js"></script>
+  <script src="js/views/student/interviewsView.js"></script>
+  <script src="js/views/student/offersView.js"></script>
+  <script src="js/views/student/notificationsView.js"></script>
+  <script src="js/views/student/eligibilityView.js"></script>
+  <script src="js/views/student/rankingsView.js"></script>
+  <script src="js/views/student/profileView.js"></script>
+
+  <!-- Views: Faculty & TPO Dashboard -->
+  <script src="js/views/faculty/dashboardView.js"></script>
+  <script src="js/views/faculty/applicationsView.js"></script>
+  <script src="js/views/faculty/rankingsView.js"></script>
+  <script src="js/views/faculty/analyticsView.js"></script>
+  <script src="js/views/faculty/reportsView.js"></script>
+
+  <!-- Views: Admin Control Center -->
+  <script src="js/views/admin/dashboardView.js"></script>
+  <script src="js/views/admin/drivesView.js"></script>
+  <script src="js/views/admin/auditView.js"></script>
+  <script src="js/views/admin/systemView.js"></script>
+
+  <!-- Router & Application Entry Point -->
+  <script src="js/router.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

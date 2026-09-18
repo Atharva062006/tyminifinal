@@ -1,7 +1,20 @@
 {
-  "rows": {},
+  "rows": {
+    "d38c0620-437d-42f0-b4b3-6e4d642836cf": {
+      "application_id": "d38c0620-437d-42f0-b4b3-6e4d642836cf",
+      "student_id": "STU001",
+      "drive_id": "DRV001",
+      "state": "APPLIED",
+      "resume_version": "v1.0",
+      "consent": true,
+      "idempotency_key": "IDEM-1788456551059",
+      "version": 1,
+      "created_at": "2026-09-03T17:29:11.410Z",
+      "updated_at": "2026-09-03T17:29:11.410Z"
+    }
+  },
   "meta": {
-    "count": 0,
-    "lastModified": "2026-08-14T07:28:53.842Z"
+    "count": 1,
+    "lastModified": "2026-09-03T17:29:11.467Z"
   }
 }

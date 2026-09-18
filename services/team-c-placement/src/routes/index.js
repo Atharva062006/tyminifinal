@@ -19,10 +19,13 @@ module.exports = (controllers, idempotencyService) => {
   router.get('/companies/:companyId', controllers.companyController.get);
 
   // ── Students (C1) ──────────────────────────────────────────────────────────
+  router.get('/students', controllers.studentController.list);
+  router.get('/students/:studentId', controllers.studentController.get);
   router.post('/students',
     validateBody({ name: 'string', email: 'string', branch: 'string', cgpa: 'number', backlogs: 'number' }),
     controllers.studentController.create
   );
+  router.patch('/students/:studentId', controllers.studentController.update);
 
   // ── Drives (C1) ────────────────────────────────────────────────────────────
   router.post('/drives',
@@ -70,6 +73,10 @@ module.exports = (controllers, idempotencyService) => {
     requireRoles(['admin', 'faculty']),
     controllers.reportController.getPlacementPerformance
   );
+
+  // ── Announcements ─────────────────────────────────────────────────────────
+  router.get('/announcements', controllers.announcementController.list);
+  router.post('/announcements', controllers.announcementController.create);
 
   // ── Recovery (C4) ─────────────────────────────────────────────────────────
   router.post('/internal/recovery/verify', controllers.reportController.verifyRecovery);
