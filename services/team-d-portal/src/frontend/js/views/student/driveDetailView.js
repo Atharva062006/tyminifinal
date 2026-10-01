@@ -307,3 +307,113 @@ window.views.student.renderDriveDetail = async function(driveId) {
     container.innerHTML = window.components.renderError(err, `window.views.student.renderDriveDetail('${driveId}')`);
   }
 };
+
+window.views.student._openApplicationModal = function(drive, user) {
+  const company = drive.company || {};
+  const pkg = drive.package ? `₹${(drive.package / 100000).toFixed(1)} LPA` : '—';
+  const studentId = user.id || user.student_id || 'STU001';
+
+  const modalHtml = `
+    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <div style="font-size: 0.78rem; color: var(--rit-blue); font-weight: 700; text-transform: uppercase;">${company.name || 'Company'}</div>
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--rit-navy); margin-top: 0.15rem;">${drive.title}</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+          Package: <strong style="color: var(--accent-emerald);">${pkg}</strong> • Drive ID: <span class="mono">${drive.drive_id}</span>
+        </p>
+      </div>
+
+      <div style="background: #ffffff; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--rit-navy); margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem;">
+          Student Profile Summary
+        </h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.85rem;">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.72rem; font-weight: 600;">STUDENT NAME</span>
+            <strong style="color: var(--rit-navy);">${user.name || user.username || 'Student Candidate'}</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.72rem; font-weight: 600;">ROLL / STUDENT ID</span>
+            <span class="mono" style="font-weight: 700;">${studentId}</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.72rem; font-weight: 600;">BRANCH / CGPA</span>
+            <strong style="color: var(--rit-navy);">${user.branch || 'CSE'} (CGPA: ${user.cgpa !== undefined ? user.cgpa : '8.0'})</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.72rem; font-weight: 600;">ACTIVE BACKLOGS</span>
+            <strong style="color: var(--rit-navy);">${user.backlogs !== undefined ? user.backlogs : 0}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label" style="color: var(--rit-navy); font-weight: 700; font-size: 0.88rem;">Resume Version</label>
+        <input type="text" id="app-resume-version" class="form-control" value="v1.0" placeholder="e.g. v1.0, software_eng_v2" />
+        <small style="color: var(--text-muted); font-size: 0.75rem;">Specify the resume version associated with your placement portfolio.</small>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; align-items: flex-start; background: #eff6ff; padding: 0.85rem 1rem; border-radius: var(--radius-md); border: 1px solid #bfdbfe;">
+        <input type="checkbox" id="app-consent-check" style="margin-top: 0.2rem; cursor: pointer;" checked />
+        <label for="app-consent-check" style="font-size: 0.82rem; color: var(--rit-navy); cursor: pointer; line-height: 1.4;">
+          <strong>Institutional Consent & Academic Integrity Declaration:</strong><br/>
+          I confirm that my academic CGPA, backlogs, and resume details are accurate. I grant consent to participate in this placement drive and authorize Team A Decision Tree Rules Engine to evaluate my eligibility.
+        </label>
+      </div>
+    </div>
+  `;
+
+  window.modal.open({
+    title: 'Confirm Placement Application',
+    contentHtml: modalHtml,
+    buttons: [
+      { text: 'Cancel', className: 'btn-secondary', onClick: () => true },
+      {
+        text: 'Submit Application',
+        className: 'btn-primary',
+        onClick: async (e, modalRoot) => {
+          try {
+            const consentCheck = modalRoot.querySelector('#app-consent-check');
+            if (!consentCheck || !consentCheck.checked) {
+              if (window.toast) {
+                window.toast.error('Student consent is required to submit application');
+              } else {
+                alert('Student consent is required to submit application');
+              }
+              return false;
+            }
+
+            const resumeInput = modalRoot.querySelector('#app-resume-version');
+            const resumeVersion = resumeInput ? (resumeInput.value.trim() || 'v1.0') : 'v1.0';
+
+            const payload = {
+              student_id: studentId,
+              drive_id: drive.drive_id,
+              resume_version: resumeVersion,
+              consent: true
+            };
+
+            await window.api.createApplication(payload);
+
+            if (window.toast) {
+              window.toast.success('Application submitted successfully!');
+            }
+            
+            if (window.views.student.renderDriveDetail) {
+              await window.views.student.renderDriveDetail(drive.drive_id);
+            }
+            return true;
+          } catch (err) {
+            if (window.toast) {
+              window.toast.error(err.message || 'Failed to submit application');
+            } else {
+              alert(err.message || 'Failed to submit application');
+            }
+            return false;
+          }
+        }
+      }
+    ]
+  });
+};
+
