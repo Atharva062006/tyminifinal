@@ -55,15 +55,22 @@ describe('Team D BFF — Student Profile & Academic Data Flow', () => {
     expect(res.body.data.student.skills).toContain('React');
   });
 
-  it('6. PATCH /api/v1/ui/students/STU001 should strip CGPA tamper attempts by student', async () => {
-    const res = await request(app)
+  it('6. PATCH /api/v1/ui/students/STU001 lets a student edit own academics but flags them unverified; invalid CGPA is rejected', async () => {
+    const ok = await request(app)
       .patch('/api/v1/ui/students/STU001')
       .set('Authorization', 'Bearer student_STU001')
-      .send({ cgpa: 10.0, skills: ['Python', 'SQL'] })
+      .send({ cgpa: 9.0, skills: ['Python', 'SQL'] })
       .expect(200);
 
-    // Student profile CGPA should not be tampered by student request body
-    expect(res.body.data.student.cgpa).not.toBe(10.0);
+    expect(ok.body.data.student.cgpa).toBe(9);
+    expect(ok.body.data.student.academic_verified).toBe(false);
+
+    const bad = await request(app)
+      .patch('/api/v1/ui/students/STU001')
+      .set('Authorization', 'Bearer student_STU001')
+      .send({ cgpa: 42 })
+      .expect(400);
+    expect(bad.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('7. PATCH /api/v1/ui/students/STU002 should reject student STU001 update attempt with 403', async () => {

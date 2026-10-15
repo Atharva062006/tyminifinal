@@ -1,10 +1,10 @@
-// Team A — Heap Queue (alias: max-heap variant for Team A scheduling experiments)
+// Team A — Heap Queue (max-heap variant for scheduling experiments)
+// Higher `priority` value is dequeued first; ties are broken by arrival sequence (FIFO).
 const PriorityQueue = require('./PriorityQueue');
 
-// Max-heap: higher priority value = dequeued first
 class HeapQueue extends PriorityQueue {
   constructor() {
-    super((a, b) => b.priority - a.priority); // max-heap
+    super((a, b) => (b.priority - a.priority) || ((a.seq || 0) - (b.seq || 0)));
   }
 }
 

@@ -19,11 +19,19 @@ app.use((req, res, next) => {
 });
 
 app.use(correlationMiddleware);
-app.use(express.static(path.join(__dirname, 'src/frontend')));
+app.use(express.static(path.join(__dirname, 'src/frontend'), {
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') // always revalidate: the SPA is edited live during development
+}));
 
 app.get('/health', (req, res) => res.json({ service: 'team-d-portal', status: 'ok' }));
 
 app.use('/api/v1/ui', uiRoutes);
+
+// Unknown API routes must answer JSON, never the SPA shell
+app.use('/api', (req, res) => res.status(404).json({
+  error: { code: 'NOT_FOUND', message: `Route ${req.method} ${req.originalUrl} not found`, details: [] },
+  meta: { correlation_id: req.correlationId, timestamp: new Date().toISOString() }
+}));
 
 // Fallback: serve index.html for SPA routing
 app.get('*', (req, res) => {

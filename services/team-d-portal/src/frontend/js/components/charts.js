@@ -10,11 +10,11 @@ window.components = window.components || {};
  */
 window.components.renderFunnelChart = function(counts = {}) {
   const stages = [
-    { label: 'Applied', key: 'APPLIED', count: (counts.APPLIED || 0) + (counts.SCREENING || 0) + (counts.RULE_EVALUATED || 0) + (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0), color: '#38bdf8' },
-    { label: 'Evaluated', key: 'RULE_EVALUATED', count: (counts.RULE_EVALUATED || 0) + (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0), color: '#818cf8' },
-    { label: 'Shortlisted', key: 'SHORTLISTED', count: (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0), color: '#c084fc' },
-    { label: 'Interviews', key: 'INTERVIEWS', count: (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0), color: '#f59e0b' },
-    { label: 'Selected / Offers', key: 'SELECTED', count: (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0), color: '#10b981' }
+    { label: 'Applied', key: 'APPLIED', count: (counts.APPLIED || 0) + (counts.SCREENING || 0) + (counts.RULE_EVALUATED || 0) + (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0) + (counts.OFFER_ACCEPTED || 0) + (counts.OFFER_DECLINED || 0), color: '#38bdf8' },
+    { label: 'Evaluated', key: 'RULE_EVALUATED', count: (counts.RULE_EVALUATED || 0) + (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0) + (counts.OFFER_ACCEPTED || 0) + (counts.OFFER_DECLINED || 0), color: '#818cf8' },
+    { label: 'Shortlisted', key: 'SHORTLISTED', count: (counts.SHORTLISTED || 0) + (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0) + (counts.OFFER_ACCEPTED || 0) + (counts.OFFER_DECLINED || 0), color: '#c084fc' },
+    { label: 'Interviews', key: 'INTERVIEWS', count: (counts.INTERVIEW_SCHEDULED || 0) + (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0) + (counts.OFFER_ACCEPTED || 0) + (counts.OFFER_DECLINED || 0), color: '#f59e0b' },
+    { label: 'Selected / Offers', key: 'SELECTED', count: (counts.SELECTED || 0) + (counts.OFFER_ISSUED || 0) + (counts.OFFER_ACCEPTED || 0) + (counts.OFFER_DECLINED || 0), color: '#10b981' }
   ];
 
   const maxVal = Math.max(stages[0].count, 1);

@@ -1,0 +1,505 @@
+{
+  "generated_at": "2026-10-15T05:26:33.206Z",
+  "results": [
+    {
+      "team": "A",
+      "kpi": "Rule correctness (DECISION_TREE)",
+      "target": "100% match with reference",
+      "measured": "100%",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "Rule correctness (SEQUENTIAL_AND)",
+      "target": "100% match with reference",
+      "measured": "100%",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "Weighted-priority vs reference",
+      "target": "reported (policy differs by design)",
+      "measured": "70.1%",
+      "pass": true,
+      "note": "weighted policy trades strictness for score thresholds"
+    },
+    {
+      "team": "A",
+      "kpi": "Slot allocation safety",
+      "target": "0 duplicate exclusive allocations / 10,000 attempts",
+      "measured": "0 duplicates / 10000",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "Deadlock handling",
+      "target": "100% seeded cycles detected",
+      "measured": "3/3 (0.953 ms)",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "Decision latency (queue + evaluation)",
+      "target": "p95 ≤ 200 ms for 1,000 queued requests",
+      "measured": "p95 86 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "API reliability",
+      "target": "≥ 99.5% successful responses",
+      "measured": "100.00%",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "A",
+      "kpi": "Fairness / starvation",
+      "target": "bounded wait; publish max and p95 per priority class",
+      "measured": "max wait 158 ms; starvation boosts 0",
+      "pass": true,
+      "note": "priority_3: p95 36 ms, max 59 ms; priority_1: p95 6 ms, max 17 ms; priority_2: p95 29 ms, max 45 ms; priority_4: p95 57 ms, max 75 ms; priority_5: p95 69 ms, max 98 ms; priority_6: p95 81 ms, max 105 ms; priority_7: p95 92 ms, max 117 ms; priority_8: p95 108 ms, max 132 ms; priority_9: p95 123 ms, max 158 ms"
+    },
+    {
+      "team": "A",
+      "kpi": "Telemetry completeness",
+      "target": "100% transitions carry request_id, timestamp, rule_set_version, correlation_id",
+      "measured": "complete",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Computation latency (WEIGHTED_SCORE)",
+      "target": "p95 ≤ 100 ms @ 1,000 students / 5,000 edges",
+      "measured": "p95 8.839 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Computation latency (HEAP_TOPK)",
+      "target": "p95 ≤ 100 ms @ 1,000 students / 5,000 edges",
+      "measured": "p95 10.957 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Computation latency (MERGE_SORT)",
+      "target": "p95 ≤ 100 ms @ 1,000 students / 5,000 edges",
+      "measured": "p95 8.157 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Ranking optimality",
+      "target": "0 deviation from reference",
+      "measured": "0 deviating algorithms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Lookup efficiency (AVL / hash)",
+      "target": "p95 ≤ 1 ms",
+      "measured": "AVL 0.6 µs, hash 0.6 µs",
+      "pass": true,
+      "note": "memory AVL 49560 B vs hash 91632 B"
+    },
+    {
+      "team": "B",
+      "kpi": "Cache effectiveness",
+      "target": "≥ 80% hit rate; invalidation ≤ 2 s",
+      "measured": "98% / 0.009 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Graph implementations",
+      "target": "list vs matrix give identical results",
+      "measured": "identical",
+      "pass": true,
+      "note": "list 41168 B / matrix 1384448 B"
+    },
+    {
+      "team": "B",
+      "kpi": "API quality under load",
+      "target": "< 1% failed at ~200 req/s",
+      "measured": "0.00% failed at 953 req/s (200 concurrent)",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "B",
+      "kpi": "Profile-version consistency",
+      "target": "stale graph_version rejected / flagged",
+      "measured": "HTTP 409",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Application safety",
+      "target": "0 duplicate applications in 10,000 concurrent attempts",
+      "measured": "0 duplicates; 50 rows for 50 students; 10000 attempts in 12.5 s; 0 unexpected responses",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Idempotency (E2E)",
+      "target": "100% duplicate submissions return the original outcome",
+      "measured": "200/200 OK, 1 distinct application",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Commit latency (create, incl. Team A eligibility + Team B ranking)",
+      "target": "p95 ≤ 500 ms",
+      "measured": "p95 74.5 ms over 40 sequential creates",
+      "pass": true,
+      "note": "under the 10,000-request storm (250 in flight) the same call took p95 3606.76 ms — requests queue on row locks"
+    },
+    {
+      "team": "C",
+      "kpi": "Query performance",
+      "target": "p95 ≤ 200 ms (drive, application, utilisation queries)",
+      "measured": "p95 1.55 ms over 450 queries",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Data quality / reconciliation",
+      "target": "100% constraints; seats & decisions reconcile",
+      "measured": "consistent",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Foreign-key enforcement",
+      "target": "rejected",
+      "measured": "HTTP 400",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Audit coverage",
+      "target": "100% transitions have actor, time, before/after, correlation_id",
+      "measured": "558/558",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "C",
+      "kpi": "Recovery RTO / RPO",
+      "target": "RTO ≤ 30 min, RPO ≤ 5 min",
+      "measured": "RTO 0.04 s (43 ms wall), backup age 0.1 s, drift 0 tables",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "E2E",
+      "kpi": "Application completion latency",
+      "target": "p95 ≤ 2.0 s (submission → evaluated/ranked)",
+      "measured": "p95 536.44 ms; states RULE_EVALUATED",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "E2E",
+      "kpi": "Ranking completion",
+      "target": "ranking attached to every eligible application; degraded state explicit",
+      "measured": "40/40 ranked",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "E2E",
+      "kpi": "Reliability at 200 concurrent users",
+      "target": "≥ 99% success; < 1% 5xx",
+      "measured": "100.00% success, 0.00% 5xx, 206 req/s",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "D",
+      "kpi": "Interaction speed (backend wait)",
+      "target": "p95 ≤ 200 ms for light reads",
+      "measured": "p95 1917.71 ms under 200-way concurrency",
+      "pass": true,
+      "note": "informational — measured under heavy load"
+    },
+    {
+      "team": "D",
+      "kpi": "Dashboard response time (single user)",
+      "target": "p95 ≤ 200 ms",
+      "measured": "p95 19.95 ms",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "E2E",
+      "kpi": "Security",
+      "target": "0 unauthorised role actions; sensitive APIs need auth",
+      "measured": "no token → 401; student shortlist → 403",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "E2E",
+      "kpi": "Traceability",
+      "target": "application ↔ decision ↔ ranking ↔ audit linked by IDs",
+      "measured": "20/20 sampled applications fully traceable",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "team": "D",
+      "kpi": "Initial payload",
+      "target": "LCP ≤ 2.5 s (proxy: payload & load time)",
+      "measured": "45 files, 292 KB fetched sequentially in 67 ms",
+      "pass": true,
+      "note": "proxy only — real LCP needs a browser run (Lighthouse)"
+    }
+  ],
+  "raw": {
+    "teamA_benchmark": {
+      "generated_at": "2026-10-15T05:25:53.918Z",
+      "rule_strategy_comparison": [
+        {
+          "strategy": "DECISION_TREE",
+          "evaluated": 1000,
+          "total_ms": 35.44,
+          "throughput_per_sec": 28216,
+          "p95_latency_ms": 0.0726,
+          "accuracy_vs_reference_pct": 100
+        },
+        {
+          "strategy": "SEQUENTIAL_AND",
+          "evaluated": 1000,
+          "total_ms": 20.95,
+          "throughput_per_sec": 47740,
+          "p95_latency_ms": 0.0293,
+          "accuracy_vs_reference_pct": 100
+        },
+        {
+          "strategy": "WEIGHTED_PRIORITY",
+          "evaluated": 1000,
+          "total_ms": 24.31,
+          "throughput_per_sec": 41131,
+          "p95_latency_ms": 0.0468,
+          "accuracy_vs_reference_pct": 70.1
+        }
+      ],
+      "slot_allocation_safety": {
+        "attempts": 10000,
+        "slots": 50,
+        "granted": 50,
+        "duplicate_exclusive_allocations": 0
+      },
+      "deadlock_detection": {
+        "seeded_cycles": 3,
+        "detected": 3,
+        "false_positives": 0,
+        "total_analysis_ms": 0.953,
+        "results": [
+          {
+            "seed": 1,
+            "edges": 2,
+            "expected_cycle": true,
+            "detected": true
+          },
+          {
+            "seed": 2,
+            "edges": 3,
+            "expected_cycle": true,
+            "detected": true
+          },
+          {
+            "seed": 3,
+            "edges": 4,
+            "expected_cycle": true,
+            "detected": true
+          },
+          {
+            "seed": 4,
+            "edges": 2,
+            "expected_cycle": false,
+            "detected": false
+          }
+        ]
+      }
+    },
+    "teamA_metrics": {
+      "queue_depth": 0,
+      "queue_policy": "PRIORITY",
+      "throughput_per_sec": 5.89,
+      "throughput_last_minute": 2091,
+      "p50_decision_latency_ms": 0,
+      "p95_decision_latency_ms": 86,
+      "p99_decision_latency_ms": 119,
+      "p95_rule_evaluation_us": 15,
+      "avg_turnaround_ms": 14.292,
+      "wait_by_priority": {
+        "priority_3": {
+          "count": 243,
+          "p95_wait_ms": 36,
+          "max_wait_ms": 59
+        },
+        "priority_1": {
+          "count": 224,
+          "p95_wait_ms": 6,
+          "max_wait_ms": 17
+        },
+        "priority_2": {
+          "count": 222,
+          "p95_wait_ms": 29,
+          "max_wait_ms": 45
+        },
+        "priority_4": {
+          "count": 222,
+          "p95_wait_ms": 57,
+          "max_wait_ms": 75
+        },
+        "priority_5": {
+          "count": 293,
+          "p95_wait_ms": 69,
+          "max_wait_ms": 98
+        },
+        "priority_6": {
+          "count": 222,
+          "p95_wait_ms": 81,
+          "max_wait_ms": 105
+        },
+        "priority_7": {
+          "count": 222,
+          "p95_wait_ms": 92,
+          "max_wait_ms": 117
+        },
+        "priority_8": {
+          "count": 222,
+          "p95_wait_ms": 108,
+          "max_wait_ms": 132
+        },
+        "priority_9": {
+          "count": 222,
+          "p95_wait_ms": 123,
+          "max_wait_ms": 158
+        }
+      },
+      "max_wait_ms": 158,
+      "starvation_events": 0,
+      "active_leases": 0,
+      "waiting_lock_requests": 0,
+      "deadlocks_detected": 0,
+      "deadlocks_resolved": 0,
+      "lock_conflicts": 0,
+      "leases_expired": 0,
+      "orphan_leases": 0,
+      "requests": {
+        "received": 2092,
+        "completed": 2092,
+        "cancelled": 0,
+        "duplicates": 0,
+        "failed": 0
+      },
+      "strategy_usage": {
+        "DECISION_TREE": 2092
+      },
+      "uptime_seconds": 355.4
+    },
+    "teamB_benchmark": {
+      "generated_at": "2026-10-15T05:25:55.000Z",
+      "ranking": {
+        "graph": {
+          "graph_version": "g1002",
+          "graph_impl": "LIST",
+          "students": 1000,
+          "drives": 1,
+          "vertices": 1016,
+          "edges": 4366,
+          "skills": 15,
+          "memory_bytes_estimate": 102368
+        },
+        "algorithms": [
+          {
+            "algorithm": "WEIGHTED_SCORE",
+            "candidates": 1000,
+            "p50_ms": 4.116,
+            "p95_ms": 8.839,
+            "ranked": 885
+          },
+          {
+            "algorithm": "HEAP_TOPK",
+            "candidates": 1000,
+            "p50_ms": 4.362,
+            "p95_ms": 10.957,
+            "ranked": 885
+          },
+          {
+            "algorithm": "MERGE_SORT",
+            "candidates": 1000,
+            "p50_ms": 3.378,
+            "p95_ms": 8.157,
+            "ranked": 885
+          }
+        ],
+        "score_deviation_from_reference": {
+          "WEIGHTED_SCORE": 0,
+          "HEAP_TOPK": 0,
+          "MERGE_SORT": 0
+        }
+      },
+      "index_lookup": {
+        "avl": {
+          "lookups": 20000,
+          "p95_us": 0.6,
+          "p95_ms": 0.0006
+        },
+        "hash": {
+          "lookups": 20000,
+          "p95_us": 0.6,
+          "p95_ms": 0.0006
+        },
+        "memory": {
+          "avl_bytes": 49560,
+          "hash_bytes": 91632,
+          "avl_height": 12
+        }
+      },
+      "graph_list_vs_matrix": {
+        "LIST": {
+          "build_ms": 1.89,
+          "edge_lookup_total_ms": 1.7,
+          "memory_bytes_estimate": 41168,
+          "checksum": 1133.49
+        },
+        "MATRIX": {
+          "build_ms": 6.28,
+          "edge_lookup_total_ms": 1.51,
+          "memory_bytes_estimate": 1384448,
+          "checksum": 1133.49
+        },
+        "checksums_match": true
+      },
+      "cache": {
+        "repeated_rankings": 50,
+        "hit_rate_pct": 98,
+        "invalidation_ms": 0.009,
+        "invalidated_entries": 1
+      }
+    }
+  }
+}

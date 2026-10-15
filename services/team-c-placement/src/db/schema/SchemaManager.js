@@ -24,6 +24,15 @@ const SCHEMA = {
       backlogs:    { type: 'number',  notNull: true, check: v => v >= 0 },
       attendance:  { type: 'number',  notNull: false, check: v => v == null || (v >= 0 && v <= 100) },
       skills:      { type: 'array',   notNull: false },
+      phone:       { type: 'string',  notNull: false },
+      year:        { type: 'number',  notNull: false },
+      about:       { type: 'string',  notNull: false },
+      resume_url:  { type: 'string',  notNull: false },
+      github_url:  { type: 'string',  notNull: false },
+      linkedin_url:{ type: 'string',  notNull: false },
+      projects:    { type: 'array',   notNull: false },
+      certifications: { type: 'array', notNull: false },
+      academic_verified: { type: 'boolean', notNull: false },
       created_at:  { type: 'string',  notNull: false },
       updated_at:  { type: 'string',  notNull: false },
     },
@@ -49,7 +58,8 @@ const SCHEMA = {
       company_id:    { type: 'string', notNull: true },  // FK -> companies
       title:         { type: 'string', notNull: true },
       criteria_json: { type: 'string', notNull: false }, // JSON-encoded criteria
-      seats:         { type: 'number', notNull: true, check: v => v > 0 },
+      seats:         { type: 'number', notNull: true, check: v => v >= 0 },  // remaining seats
+      seats_total:   { type: 'number', notNull: false, check: v => v == null || v > 0 }, // original capacity
       package:       { type: 'number', notNull: false, check: v => v == null || v >= 0 },
       state:         { type: 'string', notNull: true, enum: ['DRAFT','OPEN','SCREENING','CLOSED','CANCELLED'] },
       version:       { type: 'number', notNull: true },
@@ -67,8 +77,8 @@ const SCHEMA = {
       drive_id:         { type: 'string', notNull: true },  // FK -> drives
       state:            { type: 'string', notNull: true, enum: [
         'APPLIED','SCREENING','RULE_EVALUATED','SHORTLISTED',
-        'INTERVIEW_SCHEDULED','SELECTED','OFFER_ISSUED',
-        'NOT_ELIGIBLE','WAITLISTED','WITHDRAWN','EXPIRED','COMPENSATION_REQUIRED',
+        'INTERVIEW_SCHEDULED','SELECTED','OFFER_ISSUED','OFFER_ACCEPTED','OFFER_DECLINED',
+        'NOT_ELIGIBLE','REJECTED','WAITLISTED','WITHDRAWN','EXPIRED','COMPENSATION_REQUIRED',
       ]},
       resume_version:   { type: 'string', notNull: false },
       consent:          { type: 'boolean', notNull: true },
@@ -105,7 +115,7 @@ const SCHEMA = {
       offer_id:       { type: 'string',  notNull: true },
       application_id: { type: 'string',  notNull: true },  // FK -> applications
       drive_id:       { type: 'string',  notNull: true },  // FK -> drives
-      status:         { type: 'string',  notNull: true, enum: ['PENDING','COMMITTED','COMPENSATED'] },
+      status:         { type: 'string',  notNull: true, enum: ['PENDING','COMMITTED','ACCEPTED','DECLINED','COMPENSATED'] },
       committed_at:   { type: 'string',  notNull: false },
     },
     foreignKeys: [
@@ -127,6 +137,69 @@ const SCHEMA = {
       correlation_id: { type: 'string', notNull: false },
       timestamp:      { type: 'string', notNull: true },
     },
+  },
+
+  users: {
+    primaryKey: 'user_id',
+    columns: {
+      user_id:       { type: 'string', notNull: true },   // STU001 / FAC001 / ADM001 ...
+      username:      { type: 'string', notNull: true },   // login e-mail (lower-case)
+      password_hash: { type: 'string', notNull: true },
+      salt:          { type: 'string', notNull: true },
+      role:          { type: 'string', notNull: true, enum: ['student', 'faculty', 'admin', 'auditor'] },
+      name:          { type: 'string', notNull: true },
+      student_id:    { type: 'string', notNull: false },   // FK -> students (role=student)
+      active:        { type: 'boolean', notNull: true },
+      created_at:    { type: 'string', notNull: false },
+      last_login_at: { type: 'string', notNull: false },
+    },
+    unique: ['username'],
+    foreignKeys: [{ column: 'student_id', refTable: 'students', refColumn: 'student_id' }],
+  },
+
+  announcements: {
+    primaryKey: 'announcement_id',
+    columns: {
+      announcement_id: { type: 'string', notNull: true },
+      title:           { type: 'string', notNull: true },
+      content:         { type: 'string', notNull: false },
+      author:          { type: 'string', notNull: false },
+      audience:        { type: 'string', notNull: false },
+      created_at:      { type: 'string', notNull: true },
+    },
+  },
+
+  notifications: {
+    primaryKey: 'notification_id',
+    columns: {
+      notification_id: { type: 'string', notNull: true },
+      recipient_id:    { type: 'string', notNull: true },   // student_id or staff user_id
+      type:            { type: 'string', notNull: true },
+      title:           { type: 'string', notNull: true },
+      message:         { type: 'string', notNull: false },
+      entity_id:       { type: 'string', notNull: false },
+      read:            { type: 'boolean', notNull: true },
+      created_at:      { type: 'string', notNull: true },
+    },
+  },
+
+  interviews: {
+    primaryKey: 'interview_id',
+    columns: {
+      interview_id:   { type: 'string', notNull: true },
+      application_id: { type: 'string', notNull: true },   // FK -> applications
+      student_id:     { type: 'string', notNull: true },
+      drive_id:       { type: 'string', notNull: true },
+      round_name:     { type: 'string', notNull: true },
+      scheduled_at:   { type: 'string', notNull: true },
+      mode:           { type: 'string', notNull: false },
+      location_url:   { type: 'string', notNull: false },
+      slot_id:        { type: 'string', notNull: false },
+      lease_id:       { type: 'string', notNull: false },
+      status:         { type: 'string', notNull: true, enum: ['SCHEDULED', 'COMPLETED', 'CANCELLED'] },
+      created_at:     { type: 'string', notNull: false },
+    },
+    foreignKeys: [{ column: 'application_id', refTable: 'applications', refColumn: 'application_id' }],
   },
 
   idempotency_keys: {

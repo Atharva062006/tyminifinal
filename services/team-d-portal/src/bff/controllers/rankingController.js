@@ -29,12 +29,12 @@ class RankingController {
 
       // Verify drive existence
       const drive = await teamC.getDrive(driveId, correlationId).catch(() => null);
-      if (!drive && driveId !== 'DRV001' && driveId !== 'DRV002') {
+      if (!drive) {
         throw new NotFoundError('Drive', driveId);
       }
 
       const algorithm = req.query.algorithm || 'WEIGHTED_SCORE';
-      const rankings = await rankingService.getDriveRankings(driveId, { algorithm }, correlationId);
+      const rankings = await rankingService.getDriveRankings(driveId, { algorithm }, correlationId, req.user?.actor);
 
       // Student privacy filtering: highlight student's own rank, anonymize others
       if (req.user?.role === 'student') {
@@ -48,6 +48,7 @@ class RankingController {
           algorithm: rankings.algorithm
         } : null;
 
+        rankings.disqualified = (rankings.disqualified || []).filter(d => d.student_id === studentId);
         rankings.rankings = rankings.rankings.map(c => {
           if (c.student_id === studentId) {
             return c;
@@ -87,14 +88,14 @@ class RankingController {
       }
 
       const drive = await teamC.getDrive(drive_id, correlationId).catch(() => null);
-      if (!drive && drive_id !== 'DRV001' && drive_id !== 'DRV002') {
+      if (!drive) {
         throw new NotFoundError('Drive', drive_id);
       }
 
       const rankings = await rankingService.getDriveRankings(drive_id, {
         algorithm: algorithm || 'WEIGHTED_SCORE',
         weights: weights || { cgpa: 0.4, skills: 0.4, attendance: 0.2 }
-      }, correlationId);
+      }, correlationId, req.user?.actor);
 
       sendSuccess(res, rankings, correlationId);
     } catch (err) {

@@ -72,7 +72,8 @@ class AnalyticsService {
     const driveMap = new Map(allDrives.map(d => [d.drive_id, d]));
     const packages = filteredApps
       .filter(a => ['OFFER_ISSUED', 'OFFER_ACCEPTED', 'SELECTED'].includes(a.state))
-      .map(a => driveMap.get(a.drive_id)?.package || 600000)
+      .map(a => driveMap.get(a.drive_id)?.package)
+      .filter(p => typeof p === 'number' && p > 0)
       .sort((a, b) => a - b);
 
     let packageStats = {
@@ -105,8 +106,17 @@ class AnalyticsService {
       };
     }
 
+    // Cohort analysis computed by Team B (B4): department trend, company conversion, package histogram, skill gap
+    let cohort = null;
+    try {
+      cohort = await teamB.analyseCohort({
+        students: allStudents, applications: filteredApps, drives: allDrives, companies: allCompanies,
+        algorithm: filters.algorithm || 'HASH_AGG', department: branch === 'ALL' ? undefined : branch,
+      }, correlationId);
+    } catch { cohort = null; }
+
     // Branch Breakdown
-    const branches = ['CSE', 'IT', 'ECE', 'MECH', 'CIVIL'];
+    const branches = [...new Set(allStudents.map(s => s.branch).filter(Boolean))].sort();
     const branchBreakdown = branches.map(b => {
       const bStudents = allStudents.filter(s => s.branch === b);
       const bStudentIds = new Set(bStudents.map(s => s.student_id));
@@ -136,7 +146,7 @@ class AnalyticsService {
         drive_id: d.drive_id,
         company_name: companyMap.get(d.company_id)?.name || 'Company',
         role: d.title || 'Role',
-        package: d.package || 600000,
+        package: d.package || 0,
         applications: dApps.length,
         offers_issued: dOffers,
         offers_accepted: dAccepted,

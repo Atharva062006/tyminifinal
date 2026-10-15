@@ -1,167 +1,63 @@
 /**
- * Role-aware Student Candidate Rankings & Privacy Protection View for RIT Portal.
- * Clean RIT Institutional Design Theme with Team B DS Engine.
+ * Student ranking view: your standing per drive. Other candidates are anonymised by the BFF.
  */
-
 window.views = window.views || {};
 window.views.student = window.views.student || {};
 
-window.views.student.renderRankings = async function() {
-  const container = document.getElementById('main-content');
-  container.innerHTML = window.components.renderLoading('Fetching candidate rankings from Team B DS Engine...');
+window.views.student.renderRankings = async function () {
+  const c = document.getElementById('main-content');
+  window.components.beginLoad(c);
+  const user = window.store.get('user');
+  const [drives, myApps] = await Promise.all([window.api.getDrives(), window.api.getApplications()]);
+  const applied = drives.filter(d => myApps.some(a => a.drive_id === d.drive_id));
+  const list = applied.length ? applied : drives.filter(d => d.state === 'OPEN');
+  const sel = window.__rankSel = window.__rankSel || {};
+  const driveId = list.find(d => d.drive_id === sel.driveId)?.drive_id || list[0]?.drive_id;
+  const algorithm = sel.algorithm || 'WEIGHTED_SCORE';
 
-  try {
-    const user = window.store.get('user') || {};
-    const drives = await window.api.getDrives();
-    
-    const urlParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-    const activeDriveId = urlParams.get('drive_id') || drives[0]?.drive_id || 'DRV001';
+  c.innerHTML = `
+    ${window.components.pageHeader({
+      title: 'My ranking', subtitle: 'How the ranking engine scores you against other eligible applicants. Names of other students are hidden.',
+      tags: [['B', 'skill graph + Top-K'], ['C', 'applicant pool']],
+    })}
+    ${list.length ? `
+    <div class="filter-bar">
+      <select id="rk-drive" class="form-control" aria-label="Drive">${list.map(d => `<option value="${esc(d.drive_id)}" ${d.drive_id === driveId ? 'selected' : ''}>${esc(d.company?.name || '')} — ${esc(d.title)}</option>`).join('')}</select>
+      <select id="rk-alg" class="form-control" aria-label="Algorithm">${['WEIGHTED_SCORE', 'HEAP_TOPK', 'MERGE_SORT'].map(a => `<option ${a === algorithm ? 'selected' : ''} value="${a}">${a.replace(/_/g, ' ')}</option>`).join('')}</select>
+      <span class="small muted">All algorithms return the same order — they differ only in how they compute it.</span>
+    </div>
+    <div id="rk-result">${window.components.skeleton(2)}</div>` : window.components.emptyState('Nothing to rank yet', 'Apply to a drive to see where you stand.', '<a class="btn btn-primary btn-sm" href="#/student/drives">Find a drive</a>')}`;
 
-    const driveOptionsHtml = drives.map(d => `
-      <option value="${d.drive_id}" ${d.drive_id === activeDriveId ? 'selected' : ''}>
-        ${d.company?.name || 'Company'} — ${d.title}
-      </option>
-    `).join('');
-
-    container.innerHTML = `
-      <!-- Breadcrumb -->
-      <div id="breadcrumb-bar" style="margin-bottom: 1.25rem;">
-        <span style="color: var(--text-muted);">Home</span> / <strong style="color: var(--rit-navy);">Rankings</strong>
-      </div>
-
-      <!-- Page Header -->
-      <div style="margin-bottom: 1.75rem;">
-        <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--rit-navy); margin-bottom: 0.25rem;">Placement Rankings</h1>
-        <p style="color: var(--text-secondary); font-size: 0.92rem;">Authoritative candidate match scores computed via Team B Graph Engine.</p>
-      </div>
-
-      <!-- Context Bar: Drive Selector -->
-      <div class="card" style="margin-bottom: 1.5rem; background: #ffffff;">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label class="form-label" style="color: var(--rit-navy); font-weight: 700;">Selected Placement Drive:</label>
-          <select id="ranking-drive-select" class="form-control" style="font-size: 0.95rem; font-weight: 600;">
-            ${driveOptionsHtml}
-          </select>
+  if (!list.length) return;
+  const load = async () => {
+    const out = document.getElementById('rk-result');
+    const d = document.getElementById('rk-drive').value;
+    const a = document.getElementById('rk-alg').value;
+    window.__rankSel = { driveId: d, algorithm: a };
+    out.innerHTML = window.components.skeleton(2);
+    try {
+      const r = await window.api.getRankings(d, a);
+      const me = (r.rankings || []).find(x => x.student_id === user.id);
+      out.innerHTML = `
+        ${r.degraded ? '<div class="alert warn"><div>Ranking engine is unavailable — scores are not shown. Your application is not affected.</div></div>' : ''}
+        <div class="grid cols-3" style="margin-bottom:1.25rem;">
+          <div class="kpi">${'<div class="k-label">Your rank</div>'}<div class="k-value">${me ? '#' + esc(me.rank) : '—'}</div><div class="k-meta">${me ? `of ${esc(r.rankings.length)} ranked candidates` : (r.pool === 'ALL_STUDENTS' ? 'Not an applicant yet — preview of all students' : 'Not ranked (not eligible or not applied)')}</div></div>
+          <div class="kpi purple"><div class="k-label">Your score</div><div class="k-value">${me && me.total_score != null ? esc(fmt.num(me.total_score, 3)) : '—'}</div><div class="k-meta">weighted: CGPA ${esc(r.weights?.cgpa)}, skills ${esc(r.weights?.skills)}, attendance ${esc(r.weights?.attendance)}</div></div>
+          <div class="kpi cyan"><div class="k-label">Seats</div><div class="k-value">${esc(r.seats)}</div><div class="k-meta">${esc(r.pool === 'APPLICANTS' ? 'applicant pool' : 'preview pool')} · graph ${esc(r.graph_version || '—')}</div></div>
         </div>
-      </div>
-
-      <!-- Output Panel Container -->
-      <div id="ranking-results-panel">
-        <div class="loading-container">
-          <div class="spinner"></div>
-          <p>Computing candidate leaderboard...</p>
-        </div>
-      </div>
-    `;
-
-    const driveSelect = document.getElementById('ranking-drive-select');
-    const resultsPanel = document.getElementById('ranking-results-panel');
-
-    const loadRankings = async () => {
-      const driveId = driveSelect.value;
-      if (!driveId) return;
-
-      resultsPanel.innerHTML = window.components.renderLoading('Fetching rankings from Team B Engine...');
-
-      try {
-        const rankingData = await window.api.getRankings(driveId);
-        const rankings = rankingData.rankings || [];
-        const myRanking = rankingData.my_ranking || rankings.find(r => r.student_id === user.id);
-        const totalCandidates = rankingData.candidates_count || rankings.length;
-        const targetDrive = drives.find(d => d.drive_id === driveId) || {};
-        const companyName = targetDrive.company?.name || rankingData.company_name || 'Company';
-
-        const myScorePct = myRanking ? (myRanking.total_score * 100).toFixed(1) : '—';
-
-        resultsPanel.innerHTML = `
-          <!-- Logged-In Student Personal Standing Card -->
-          <div class="card" style="background: #eff6ff; border: 1px solid #bfdbfe; margin-bottom: 1.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem;">
-              <div>
-                <div style="font-size: 0.75rem; color: var(--rit-blue); font-weight: 700; text-transform: uppercase;">YOUR PERSONAL RANKING POSITION</div>
-                <h2 style="font-size: 1.85rem; font-weight: 800; color: var(--rit-navy); margin-top: 0.2rem;">
-                  ${myRanking ? `Rank #${myRanking.rank} <span style="font-size: 1.1rem; color: var(--text-secondary);">/ ${totalCandidates} Candidates</span>` : 'Ranking Pending'}
-                </h2>
-                <p style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                  Match Score: <strong style="color: var(--accent-emerald); font-family: 'JetBrains Mono';">${myScorePct}%</strong> • Drive: <strong>${rankingData.drive_title || targetDrive.title}</strong> (${companyName})
-                </p>
-                ${myRanking?.score_breakdown ? `
-                  <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.4rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <span>CGPA Factor: <strong>${myRanking.score_breakdown.cgpa_component}</strong></span>
-                    <span>Skills Factor: <strong>${myRanking.score_breakdown.skills_component}</strong></span>
-                    <span>Attendance Factor: <strong>${myRanking.score_breakdown.attendance_component}</strong></span>
-                  </div>
-                ` : ''}
-              </div>
-              <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-                <span class="badge badge-selected" style="font-size: 0.85rem; padding: 0.45rem 0.9rem;">Team B Computed</span>
-                ${myRanking ? window.components.renderBadge(myRanking.application_state || 'SHORTLISTED') : ''}
-              </div>
-            </div>
-          </div>
-
-          <!-- Leaderboard Table (Privacy Preserved) -->
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h3 class="card-title">Placement Drive Leaderboard: ${rankingData.drive_title || targetDrive.title}</h3>
-                <span style="font-size: 0.75rem; color: var(--text-muted);">
-                  Algorithm: <strong>${rankingData.algorithm || 'WEIGHTED_SCORE'}</strong> • Updated: ${new Date(rankingData.timestamp || Date.now()).toLocaleTimeString()}
-                </span>
-              </div>
-              ${rankingData.degraded ? '<span class="badge badge-closed">Degraded Fallback</span>' : '<span class="badge badge-open">Optimized</span>'}
-            </div>
-
-            ${window.components.renderDataTable({
-              columns: [
-                {
-                  label: 'Rank',
-                  render: row => {
-                    let rankText = `#${row.rank}`;
-                    return row.student_id === user.id
-                      ? `<strong style="color: var(--rit-blue); font-size: 1.1rem;">${rankText}</strong>`
-                      : `<span style="font-weight: 600; color: var(--rit-navy);">${rankText}</span>`;
-                  }
-                },
-                {
-                  label: 'Candidate',
-                  render: row => row.student_id === user.id
-                    ? `<strong style="color: var(--rit-blue);">${row.name || user.name || row.student_id} (You)</strong>`
-                    : `<span style="color: var(--text-muted);">${row.name || `Candidate #${row.rank}`}</span>`
-                },
-                {
-                  label: 'Score',
-                  render: row => {
-                    const pct = (row.total_score * 100).toFixed(1);
-                    return `
-                      <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 140px;">
-                        <strong style="color: ${row.student_id === user.id ? 'var(--accent-emerald)' : 'var(--rit-navy)'}; font-family: 'JetBrains Mono'; width: 45px;">${pct}%</strong>
-                        <div style="flex: 1; height: 7px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
-                          <div style="width: ${pct}%; height: 100%; background: ${row.student_id === user.id ? 'var(--accent-emerald)' : 'var(--rit-blue)'}; border-radius: 4px;"></div>
-                        </div>
-                      </div>
-                    `;
-                  }
-                },
-                {
-                  label: 'Status',
-                  render: row => window.components.renderBadge(row.application_state || 'SHORTLISTED')
-                }
-              ],
-              rows: rankings,
-              emptyMessage: 'No candidate rankings calculated for this drive yet.'
-            })}
-          </div>
-        `;
-      } catch (err) {
-        resultsPanel.innerHTML = window.components.renderError(err, null);
-      }
-    };
-
-    driveSelect.addEventListener('change', loadRankings);
-    loadRankings();
-
-  } catch (err) {
-    container.innerHTML = window.components.renderError(err, "window.views.student.renderRankings()");
-  }
+        ${me ? `<div class="card" style="margin-bottom:1.25rem;"><div class="card-head"><h3>Why this score</h3>${window.components.teamTag('B', 'score breakdown')}</div>
+          ${Object.entries(me.score_breakdown || {}).map(([k, v]) => `<div class="row between small"><span>${esc(k.replace(/_/g, ' '))}</span><b>${esc(fmt.num(v, 3))}</b></div><div class="score-bar" style="margin-bottom:.5rem;"><div style="width:${Math.min(100, v * 250)}%"></div></div>`).join('')}
+          ${(me.missing_skills || []).length ? `<p class="small">Add these skills to improve your match: ${me.missing_skills.map(s => `<span class="chip amber">${esc(s)}</span>`).join(' ')} <a class="link" href="#/student/profile">Edit profile</a></p>` : ''}</div>` : ''}
+        <div class="card"><div class="card-head"><h3>Leaderboard (anonymised)</h3><span class="small muted">${esc(r.algorithm.replace(/_/g, ' '))} · ${esc(r.computation_time_ms ?? '—')} ms${r.cache_hit ? ' · cached' : ''}</span></div>
+          ${window.components.renderDataTable({ columns: [
+            { label: 'Rank', render: x => `<span class="rank-no ${x.rank <= 3 ? 'top' : ''}">${esc(x.rank)}</span>` },
+            { label: 'Candidate', render: x => (x.student_id === user.id ? '<b>You</b>' : esc(x.name || 'Candidate')) },
+            { label: 'Score', render: x => `<div class="row" style="gap:.5rem;"><div class="score-bar" style="width:120px;"><div style="width:${Math.min(100, (x.total_score || 0) * 100)}%"></div></div><span class="small">${esc(fmt.num(x.total_score, 3))}</span></div>` },
+          ], rows: r.rankings || [], emptyMessage: 'No ranked candidates yet.' })}
+        </div>`;
+    } catch (e) { out.innerHTML = `<div class="alert error">${esc(window.components.errorText(e))}</div>`; }
+  };
+  document.getElementById('rk-drive').addEventListener('change', load);
+  document.getElementById('rk-alg').addEventListener('change', load);
+  load();
 };

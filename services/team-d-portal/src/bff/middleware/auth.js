@@ -1,74 +1,58 @@
 /**
  * Authentication and Role-Based Authorization Middleware for Team D BFF.
- * In production, this verifies JWT tokens. In dev/academic mode, supports standard Bearer <role>_<id> tokens.
+ * Sessions are signed tokens issued by Team C's /auth/login (see shared/token.js).
+ * Under NODE_ENV=test (or ALLOW_DEV_TOKENS=true) the legacy "Bearer <role>_<userId>" token is accepted too.
  */
 const { UnauthorizedError, ForbiddenError } = require('../../../../../shared/errors');
+const tokenLib = require('../../../../../shared/token');
 
-/**
- * Validates session from Authorization header: "Bearer <role>_<userId>"
- */
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-    return next(new UnauthorizedError('Authentication required. Please log in.'));
+const VALID_ROLES = ['student', 'faculty', 'admin', 'tpo', 'auditor'];
+
+function parse(req) {
+  let raw = null;
+  const header = req.headers['authorization'];
+  if (header) {
+    const parts = header.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') return { error: 'Invalid Authorization header format. Expected "Bearer <token>"' };
+    raw = parts[1];
+  } else if (req.query && req.query.token) {
+    raw = String(req.query.token); // EventSource cannot send headers
+  } else {
+    return { missing: true };
   }
 
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return next(new UnauthorizedError('Invalid Authorization header format. Expected "Bearer <token>"'));
-  }
+  const payload = tokenLib.verify(raw);
+  if (!payload) return { error: 'Session is invalid or has expired. Please sign in again.' };
 
-  const token = parts[1];
-  const tokenParts = token.split('_');
-  if (tokenParts.length < 1 || !tokenParts[0]) {
-    return next(new UnauthorizedError('Invalid token content.'));
-  }
+  const rawRole = String(payload.role || '').toLowerCase();
+  if (!VALID_ROLES.includes(rawRole)) return { error: `Unknown or invalid user role in token: ${rawRole}` };
+  const role = rawRole === 'tpo' ? 'faculty' : rawRole;
+  const id = payload.id || payload.student_id || payload.sub || 'USER001';
 
-  const role = tokenParts[0].toLowerCase();
-  const validRoles = ['student', 'faculty', 'admin', 'tpo', 'auditor'];
-  
-  if (!validRoles.includes(role)) {
-    return next(new UnauthorizedError(`Unknown or invalid user role in token: ${role}`));
-  }
-
-  // Normalize tpo to faculty role
-  const normalizedRole = role === 'tpo' ? 'faculty' : role;
-  const userId = tokenParts.slice(1).join('_') || 'USER001';
-
-  req.user = {
-    role: normalizedRole,
-    id: userId,
-    token: token,
-    authHeader: authHeader
+  return {
+    user: {
+      role,
+      id,
+      name: payload.name,
+      token: raw,
+      authHeader: `Bearer ${raw}`,
+      actor: { id, role },
+    },
   };
+}
 
+function authMiddleware(req, res, next) {
+  const r = parse(req);
+  if (r.missing) return next(new UnauthorizedError('Authentication required. Please log in.'));
+  if (r.error) return next(new UnauthorizedError(r.error));
+  req.user = r.user;
   next();
 }
 
-/**
- * Optional authentication: extracts user if provided, but does not block if missing.
- */
+/** Optional authentication: extracts the user if provided, but does not block if missing/invalid. */
 function optionalAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-    req.user = null;
-    return next();
-  }
-
-  const parts = authHeader.split(' ');
-  if (parts.length === 2 && parts[0] === 'Bearer') {
-    const token = parts[1];
-    const tokenParts = token.split('_');
-    if (tokenParts.length >= 1 && tokenParts[0]) {
-      const role = tokenParts[0].toLowerCase() === 'tpo' ? 'faculty' : tokenParts[0].toLowerCase();
-      req.user = {
-        role,
-        id: tokenParts.slice(1).join('_') || 'USER001',
-        token,
-        authHeader
-      };
-    }
-  }
+  const r = parse(req);
+  req.user = r.user || null;
   next();
 }
 

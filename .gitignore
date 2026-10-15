@@ -5,9 +5,12 @@ build/
 .env.local
 *.log
 npm-debug.log*
-data/tables/*.json
-data/wal/*.log
-data/backups/
+**/data/tables/*.json
+**/data/tables/*.tmp
+**/data/schema_version.json
+**/data/wal/*
+**/data/backups/
 coverage/
 .DS_Store
 Thumbs.db
+reports/

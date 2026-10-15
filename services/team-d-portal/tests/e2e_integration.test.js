@@ -25,7 +25,7 @@ describe('Team D BFF — Full End-to-End Workflow Integration', () => {
       .expect(200);
 
     expect(drivesRes.body.data.length).toBeGreaterThan(0);
-    const drive = drivesRes.body.data.find(d => d.drive_id === 'DRV001') || drivesRes.body.data[0];
+    const drive = drivesRes.body.data.find(d => d.drive_id === 'DRV002') || drivesRes.body.data[0];
     const driveId = drive.drive_id;
 
     // 3. Evaluate Rule-Chain Eligibility via Team A
@@ -63,7 +63,7 @@ describe('Team D BFF — Full End-to-End Workflow Integration', () => {
       .expect(200);
 
     expect(trackRes.body.data.application.application_id).toBe(applicationId);
-    expect(trackRes.body.data.timeline.length).toBe(7);
+    expect(trackRes.body.data.timeline.length).toBe(8);
     expect(trackRes.body.data.traceability.correlation_id).toBeDefined();
 
     // 6. View Rankings from Team B

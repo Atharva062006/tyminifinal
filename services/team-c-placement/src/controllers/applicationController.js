@@ -1,26 +1,27 @@
 const { sendSuccess } = require('../../../../shared/response');
+const { ForbiddenError } = require('../../../../shared/errors');
 
 class ApplicationController {
   constructor(applicationService) {
     this.applicationService = applicationService;
   }
 
+  _isStudent(req) { return req.user && req.user.role === 'student'; }
+
   // POST /api/v1/applications
   create = async (req, res, next) => {
     try {
       const { student_id, drive_id, resume_version, consent, idempotency_key } = req.body;
-      const correlationId = req.correlationId;
-
+      if (this._isStudent(req) && req.user.id !== student_id) {
+        throw new ForbiddenError('Students may only apply for themselves');
+      }
       const app = await this.applicationService.createApplication({
-        student_id,
-        drive_id,
-        resume_version,
-        consent,
+        student_id, drive_id, resume_version, consent,
         idempotency_key: idempotency_key || req.idempotencyKey,
-        correlationId
+        correlationId: req.correlationId,
+        actor: req.user,
       });
-
-      sendSuccess(res, app, correlationId, 201);
+      sendSuccess(res, app, req.correlationId, 201);
     } catch (err) {
       next(err);
     }
@@ -30,8 +31,8 @@ class ApplicationController {
   list = (req, res, next) => {
     try {
       const { student_id, drive_id, state } = req.query;
-      const apps = this.applicationService.listApplications({ student_id, drive_id, state });
-      sendSuccess(res, apps, req.correlationId);
+      const scoped = this._isStudent(req) ? req.user.id : student_id;
+      sendSuccess(res, this.applicationService.listApplications({ student_id: scoped, drive_id, state }), req.correlationId);
     } catch (err) {
       next(err);
     }
@@ -40,8 +41,8 @@ class ApplicationController {
   // GET /api/v1/applications/:applicationId
   get = async (req, res, next) => {
     try {
-      const { applicationId } = req.params;
-      const app = this.applicationService.getApplication(applicationId);
+      const app = this.applicationService.getApplication(req.params.applicationId);
+      if (this._isStudent(req) && app.student_id !== req.user.id) throw new ForbiddenError('You can only view your own application');
       sendSuccess(res, app, req.correlationId);
     } catch (err) {
       next(err);
@@ -51,12 +52,9 @@ class ApplicationController {
   // POST /api/v1/applications/:applicationId/withdraw
   withdraw = async (req, res, next) => {
     try {
-      const { applicationId } = req.params;
-      const actor = req.user ? req.user.id : 'unknown';
-      const correlationId = req.correlationId;
-
-      const app = await this.applicationService.withdrawApplication(applicationId, actor, correlationId);
-      sendSuccess(res, app, correlationId);
+      const app = await this.applicationService.withdrawApplication(
+        req.params.applicationId, { id: req.user.id, role: req.user.role }, req.correlationId);
+      sendSuccess(res, app, req.correlationId);
     } catch (err) {
       next(err);
     }

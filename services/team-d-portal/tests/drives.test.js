@@ -22,6 +22,7 @@ describe('Team D BFF — Drives & Eligibility API', () => {
       const driveId = drivesRes.body.data[0].drive_id;
       const res = await request(app)
         .get(`/api/v1/ui/eligibility/check/${driveId}?student_id=STU001`)
+        .set('Authorization', 'Bearer student_STU001')
         .expect(200);
 
       expect(res.body.data.evaluation).toBeDefined();

@@ -1,88 +1,62 @@
 /**
- * APNILEAP — Team D Frontend SPA Application Entry Point
- * Registers routes, subscribes to reactive store changes, connects SSE, and handles bootstrapping.
+ * RIT Placement Portal — SPA entry point: route table with role-based access, SSE bootstrap.
  */
-
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[RIT] Initializing Placement Portal Single Page Application...');
+  const R = window.router;
+  const V = window.views;
+  const S = ['student'];
+  const STAFF = ['faculty', 'admin'];
+  const ALL_STAFF = ['faculty', 'admin', 'auditor'];
 
-  // ── Register SPA Routes with Role-Based Access Control ──────────────────
+  // ── Student ────────────────────────────────────────────────────────────────
+  R.register('/student/dashboard', () => V.student.renderDashboard(), S, { refresh: true });
+  R.register('/student/drives', () => V.student.renderDrives(), S, { refresh: true });
+  R.register('/student/drives/:driveId', (p) => V.student.renderDriveDetail(p.driveId), S);
+  R.register('/student/applications', () => V.student.renderApplications(), S, { refresh: true });
+  R.register('/student/applications/:applicationId', (p) => V.student.renderApplicationDetail(p.applicationId), S, { refresh: true });
+  R.register('/student/interviews', () => V.student.renderInterviews(), S, { refresh: true });
+  R.register('/student/offers', () => V.student.renderOffers(), S, { refresh: true });
+  R.register('/student/eligibility', () => V.student.renderEligibility(), S);
+  R.register('/student/rankings', () => V.student.renderRankings(), S);
+  R.register('/student/profile', () => V.student.renderProfile(), S);
 
-  // Student Views
-  window.router.register('/student/dashboard', () => window.views.student.renderDashboard(), ['student']);
-  window.router.register('/student/drives', () => window.views.student.renderDrives(), ['student']);
-  window.router.register('/student/drives/:driveId', (params) => window.views.student.renderDriveDetail(params.driveId), ['student']);
-  window.router.register('/student/applications', () => window.views.student.renderApplications(), ['student']);
-  window.router.register('/student/applications/:applicationId', (params) => window.views.student.renderApplicationDetail(params.applicationId), ['student']);
-  window.router.register('/student/interviews', () => window.views.student.renderInterviews(), ['student']);
-  window.router.register('/student/offers', () => window.views.student.renderOffers(), ['student']);
-  window.router.register('/student/notifications', () => window.views.student.renderNotifications(), ['student']);
-  window.router.register('/student/eligibility', () => window.views.student.renderEligibility(), ['student']);
-  window.router.register('/student/rankings', () => window.views.student.renderRankings(), ['student']);
-  window.router.register('/student/profile', () => window.views.student.renderProfile(), ['student']);
+  // Notifications are available to every signed-in role
+  R.register('/student/notifications', () => V.student.renderNotifications(), ['student', 'faculty', 'admin', 'auditor'], { refresh: true });
+  R.register('/account', () => V.renderAccount(), ['student', 'faculty', 'admin', 'auditor']);
 
-  // Faculty / TPO Views
-  window.router.register('/faculty/dashboard', () => window.views.faculty.renderDashboard(), ['faculty', 'admin', 'tpo']);
-  window.router.register('/faculty/drives', () => window.views.admin.renderDrives(), ['faculty', 'admin', 'tpo']);
-  window.router.register('/faculty/applications', () => window.views.faculty.renderApplications(), ['faculty', 'admin', 'tpo']);
-  window.router.register('/faculty/rankings', () => window.views.faculty.renderRankings(), ['faculty', 'admin', 'tpo']);
-  window.router.register('/faculty/analytics', () => window.views.faculty.renderAnalytics(), ['faculty', 'admin', 'tpo']);
-  window.router.register('/faculty/reports', () => window.views.faculty.renderReports(), ['faculty', 'admin', 'tpo']);
+  // ── Faculty / TPO (admins may open everything) ─────────────────────────────
+  R.register('/faculty/dashboard', () => V.faculty.renderDashboard(), STAFF, { refresh: true });
+  R.register('/faculty/applications', () => V.faculty.renderApplications(), STAFF, { refresh: true });
+  R.register('/faculty/applications/:applicationId', (p) => V.student.renderApplicationDetail(p.applicationId), STAFF, { refresh: true });
+  R.register('/faculty/interviews', () => V.faculty.renderInterviews(), STAFF, { refresh: true });
+  R.register('/faculty/drives', () => V.admin.renderDrives(), STAFF, { refresh: true });
+  R.register('/faculty/companies', () => V.admin.renderCompanies(), STAFF, { refresh: true });
+  R.register('/faculty/students', () => V.faculty.renderStudents(), STAFF, { refresh: true });
+  R.register('/faculty/announcements', () => V.faculty.renderAnnouncements(), STAFF, { refresh: true });
+  R.register('/faculty/rankings', () => V.faculty.renderRankings(), STAFF);
+  R.register('/faculty/analytics', () => V.faculty.renderAnalytics(), ALL_STAFF);
+  R.register('/faculty/reports', () => V.faculty.renderReports(), ALL_STAFF);
 
-  // Admin Views
-  window.router.register('/admin/dashboard', () => window.views.admin.renderDashboard(), ['admin']);
-  window.router.register('/admin/drives', () => window.views.admin.renderDrives(), ['admin', 'faculty', 'tpo']);
-  window.router.register('/admin/applications', () => window.views.faculty.renderApplications(), ['admin']);
-  window.router.register('/admin/analytics', () => window.views.faculty.renderAnalytics(), ['admin']);
-  window.router.register('/admin/audit', () => window.views.admin.renderAudit(), ['admin']);
-  window.router.register('/admin/system', () => window.views.admin.renderSystem(), ['admin']);
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  R.register('/admin/dashboard', () => V.admin.renderDashboard(), ['admin', 'auditor'], { refresh: true });
+  R.register('/admin/users', () => V.admin.renderUsers(), ['admin'], { refresh: true });
+  R.register('/admin/companies', () => V.admin.renderCompanies(), STAFF, { refresh: true });
+  R.register('/admin/drives', () => V.admin.renderDrives(), STAFF, { refresh: true });
+  R.register('/admin/applications/:applicationId', (p) => V.student.renderApplicationDetail(p.applicationId), STAFF, { refresh: true });
+  R.register('/admin/students', () => V.faculty.renderStudents(), STAFF, { refresh: true });
+  R.register('/admin/applications', () => V.faculty.renderApplications(), STAFF, { refresh: true });
+  R.register('/admin/announcements', () => V.faculty.renderAnnouncements(), STAFF, { refresh: true });
+  R.register('/admin/rankings', () => V.faculty.renderRankings(), STAFF);
+  R.register('/admin/analytics', () => V.faculty.renderAnalytics(), ['admin', 'auditor']);
+  R.register('/admin/reports', () => V.faculty.renderReports(), ['admin', 'auditor']);
+  R.register('/admin/audit', () => V.admin.renderAudit(), ['admin', 'auditor']);
+  R.register('/admin/system', () => V.admin.renderSystem(), ['admin', 'auditor']);
 
-  // ── Reactive State Subscriptions ──────────────────────────────────────────
+  // Reflect login/logout in the shell without a full reload
+  window.store.subscribe('user', () => { window.__unreadLoaded = false; });
 
-  // Update header stream status when stream status changes
-  window.store.subscribe('streamStatus', () => {
-    const headerContainer = document.getElementById('header-container');
-    if (headerContainer && window.api.isAuthenticated()) {
-      headerContainer.innerHTML = window.components.renderHeader();
-      const logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-          await window.api.logout();
-          window.sseClient.disconnect();
-          window.location.hash = '#/login';
-        });
-      }
-    }
-  });
+  if (window.api.isAuthenticated()) window.sseClient.connect();
+  window.store.subscribe('user', (u) => { if (u) window.sseClient.connect(); });
 
-  // Re-render view on relevant data mutation from Team C outbox stream
-  window.store.subscribe('dataMutation', (data) => {
-    console.log('[App] Data mutation event received via SSE:', data);
-    // Optionally trigger active route refresh if user is logged in
-    const currentHash = window.location.hash;
-    if (currentHash && currentHash !== '#/login') {
-      window.router.handleRoute();
-    }
-  });
-
-  // Automatically connect SSE stream if user session exists
-  if (window.api.isAuthenticated()) {
-    window.sseClient.connect();
-  }
-
-  // Handle Mobile Navigation Menu Toggle with ARIA State Update
-  document.addEventListener('click', (e) => {
-    const mobileBtn = e.target.closest('#mobile-menu-btn');
-    if (mobileBtn) {
-      const navBar = document.getElementById('primary-nav-bar');
-      if (navBar) {
-        const isClosed = navBar.classList.toggle('mobile-closed');
-        mobileBtn.setAttribute('aria-expanded', String(!isClosed));
-      }
-    }
-  });
-
-  // Initial Route Handling
-  window.router.handleRoute();
+  R.handleRoute();
 });
-

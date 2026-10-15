@@ -277,6 +277,26 @@ class Database {
     register('audit_log_correlation_id_hash',  new HashIndex('audit_log_correlation_id_hash'),  'correlation_id');
     register('audit_log_record_id_hash',       new HashIndex('audit_log_record_id_hash'),       'record_id');
 
+    register('applications_drive_id_hash',        new HashIndex('applications_drive_id_hash'),        'drive_id');
+    register('applications_created_at_btree',     new BTreeIndex('applications_created_at_btree'),    'created_at');
+
+    // users
+    register('users_user_id_hash',  new HashIndex('users_user_id_hash'),  'user_id');
+    register('users_username_hash', new HashIndex('users_username_hash'), 'username');
+
+    // notifications
+    register('notifications_notification_id_hash', new HashIndex('notifications_notification_id_hash'), 'notification_id');
+    register('notifications_recipient_id_hash',    new HashIndex('notifications_recipient_id_hash'),    'recipient_id');
+
+    // interviews
+    register('interviews_interview_id_hash',    new HashIndex('interviews_interview_id_hash'),    'interview_id');
+    register('interviews_application_id_hash',  new HashIndex('interviews_application_id_hash'),  'application_id');
+    register('interviews_scheduled_at_btree',   new BTreeIndex('interviews_scheduled_at_btree'),  'scheduled_at');
+
+    // announcements
+    register('announcements_announcement_id_hash', new HashIndex('announcements_announcement_id_hash'), 'announcement_id');
+    register('announcements_created_at_btree',     new BTreeIndex('announcements_created_at_btree'),    'created_at');
+
     // idempotency_keys
     register('idempotency_keys_key_hash', new HashIndex('idempotency_keys_key_hash'), 'key');
   }
@@ -313,6 +333,63 @@ class Database {
    */
   async transaction(fn) {
     return this.txnManager.execute(fn);
+  }
+
+  /**
+   * Execute an ACID transaction whose writes are schema/FK-validated and keep every index in sync.
+   * Use this for multi-table workflows (application state changes, seat claims, offers).
+   * @param {Function} fn - async (txn) => result
+   */
+  async transactionIndexed(fn) {
+    const touched = [];
+    const self = this;
+    const result = await this.txnManager.execute(async (txn) => {
+      const proxy = {
+        txnId: txn.txnId,
+        lock: (r, m) => txn.lock(r, m),
+        read: (t, pk) => txn.read(t, pk),
+        readForUpdate: (t, pk) => txn.readForUpdate(t, pk),
+        find: (t, p) => txn.find(t, p),
+        readAll: (t) => txn.readAll(t),
+        async insert(t, pk, row) {
+          self.schema.validate(t, row);
+          self.schema.validateForeignKeys(t, row, self.storage);
+          const r = await txn.insert(t, String(pk), row);
+          touched.push({ t, op: 'insert', pk: String(pk), after: row });
+          return r;
+        },
+        async update(t, pk, updates) {
+          const before = { ...self.storage.getRow(t, String(pk)) };
+          self.schema.validate(t, { ...before, ...updates }, true);
+          const after = await txn.update(t, String(pk), updates);
+          touched.push({ t, op: 'update', pk: String(pk), before, after });
+          return after;
+        },
+        async delete(t, pk) {
+          const before = { ...self.storage.getRow(t, String(pk)) };
+          await txn.delete(t, String(pk));
+          touched.push({ t, op: 'delete', pk: String(pk), before });
+        },
+      };
+      return fn(proxy);
+    });
+    for (const m of touched) {
+      const api = this.table(m.t);
+      if (m.op === 'insert') api._updateIndexesOnInsert(m.after, m.pk);
+      else if (m.op === 'update') api._updateIndexesOnUpdate(m.before, m.after);
+      else api._updateIndexesOnDelete(m.before, m.pk);
+    }
+    return result;
+  }
+
+  /**
+   * Index-backed equality lookup: returns the rows whose indexed field equals key.
+   * Falls back to a table scan when no hash index is registered for the column.
+   */
+  lookupBy(tableName, field, key) {
+    const idx = this.indexes.get(`${tableName}_${field}_hash`);
+    if (!idx) return this.table(tableName).find(r => r[field] === key);
+    return [...idx.lookup(key)].map(pk => this.storage.getRow(tableName, pk)).filter(Boolean);
   }
 
   /**

@@ -1,5 +1,5 @@
-// Team B — Adjacency Matrix Graph
-// For comparison experiments vs AdjacencyList
+// Team B — Adjacency Matrix Graph (baseline for the list-vs-matrix comparison experiment).
+// O(1) edge lookup, O(V^2) memory. Rows grow incrementally (no full re-allocation per vertex).
 
 class AdjacencyMatrix {
   constructor(vertexIds = []) {
@@ -10,18 +10,13 @@ class AdjacencyMatrix {
     vertexIds.forEach(id => this.addVertex(id));
   }
 
-  _resize() {
-    const n = this.vertices.length;
-    this.matrix = Array.from({ length: n }, (_, i) =>
-      Array.from({ length: n }, (_, j) => (this.matrix[i] && this.matrix[i][j]) || 0)
-    );
-  }
-
   addVertex(id, data = {}) {
+    if (this.vertexIndex.has(id)) return;
     const idx = this.vertices.length;
     this.vertexIndex.set(id, idx);
     this.vertices.push({ id, data });
-    this._resize();
+    for (const row of this.matrix) row.push(0);
+    this.matrix.push(new Array(idx + 1).fill(0));
     this.version++;
   }
 
@@ -43,12 +38,17 @@ class AdjacencyMatrix {
   getNeighbors(fromId) {
     const fi = this.vertexIndex.get(fromId);
     if (fi === undefined) return [];
-    return this.vertices
-      .filter((_, j) => this.matrix[fi][j] > 0)
-      .map((v, j) => ({ to: v.id, weight: this.matrix[fi][this.vertexIndex.get(v.id)] }));
+    const out = [];
+    for (let j = 0; j < this.vertices.length; j++) {
+      if (this.matrix[fi][j] > 0) out.push({ to: this.vertices[j].id, weight: this.matrix[fi][j] });
+    }
+    return out;
   }
 
   getVersion() { return this.version; }
+
+  /** Rough memory model: 8 bytes per matrix cell. */
+  memoryBytes() { return this.vertices.length * this.vertices.length * 8; }
 }
 
 module.exports = AdjacencyMatrix;

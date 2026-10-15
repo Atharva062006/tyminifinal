@@ -127,7 +127,7 @@ describe('Team D BFF — Step 9 Production Hardening & Security Audit', () => {
       .post('/api/v1/ui/applications')
       .set('Authorization', 'Bearer student_STU001')
       .set('Idempotency-Key', 'KEY-SEC-TEST-001')
-      .send({ student_id: 'STU001', drive_id: 'DRV001', consent: true })
+      .send({ student_id: 'STU001', drive_id: 'DRV002', consent: true })
       .expect(201);
 
     expect(res.body.data.application_id).toBeDefined();

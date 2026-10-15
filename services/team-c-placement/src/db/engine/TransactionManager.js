@@ -39,6 +39,24 @@ class Transaction {
   }
 
   /**
+   * Take an exclusive lock on an arbitrary logical resource (e.g. "uniq:applications:STU1:DRV1").
+   * Used to serialise check-then-insert sequences so uniqueness rules cannot be raced.
+   */
+  async lock(resource, mode = 'X') {
+    if (this.state !== 'ACTIVE') throw new Error(`Transaction ${this.txnId} is not active`);
+    await this.lockManager.acquire(this.txnId, resource, mode);
+  }
+
+  /**
+   * Read a row while taking the exclusive lock up-front (avoids S->X upgrade deadlocks).
+   */
+  async readForUpdate(tableName, pk) {
+    if (this.state !== 'ACTIVE') throw new Error(`Transaction ${this.txnId} is not active`);
+    await this.lockManager.acquire(this.txnId, `${tableName}:${pk}`, 'X');
+    return this.storage.getRow(tableName, pk);
+  }
+
+  /**
    * Find rows matching a predicate (table-level shared lock).
    */
   async find(tableName, predicate) {

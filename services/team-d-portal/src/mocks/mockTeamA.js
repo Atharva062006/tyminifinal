@@ -9,6 +9,7 @@ class MockTeamA {
   constructor() {
     this.requests = new Map();
     this.metrics = {
+      mock: true,
       queue_depth: 2,
       throughput_per_sec: 142,
       p95_decision_latency_ms: 18,

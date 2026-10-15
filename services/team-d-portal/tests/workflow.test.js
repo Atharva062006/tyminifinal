@@ -25,6 +25,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('3. GET /api/v1/ui/eligibility/check/DRV001 evaluates student eligibility', async () => {
     const res = await request(app)
       .get('/api/v1/ui/eligibility/check/DRV001?student_id=STU001')
+      .set('Authorization', 'Bearer faculty_FAC001')
       .set('Authorization', 'Bearer student_STU001')
       .expect(200);
 
@@ -36,6 +37,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('4. Eligible student evaluation yields ELIGIBLE status', async () => {
     const res = await request(app)
       .get('/api/v1/ui/eligibility/check/DRV001?student_id=STU001')
+      .set('Authorization', 'Bearer faculty_FAC001')
       .set('Authorization', 'Bearer student_STU001')
       .expect(200);
 
@@ -55,6 +57,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('6. Eligibility explanation returns criteria breakdown and failed/passed rules', async () => {
     const res = await request(app)
       .get('/api/v1/ui/eligibility/check/DRV001?student_id=STU001')
+      .set('Authorization', 'Bearer faculty_FAC001')
       .set('Authorization', 'Bearer student_STU001')
       .expect(200);
 
@@ -70,7 +73,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
       .set('Authorization', 'Bearer student_STU001')
       .send({
         student_id: 'STU001',
-        drive_id: 'DRV001',
+        drive_id: 'DRV002',
         consent: true,
         idempotency_key: `IDEM-${Date.now()}`
       })
@@ -85,7 +88,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
       .set('Authorization', 'Bearer student_STU001')
       .send({
         student_id: 'STU001',
-        drive_id: 'DRV001',
+        drive_id: 'DRV002',
         consent: false
       })
       .expect(400);
@@ -108,10 +111,10 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
 
     const res1 = await request(app)
       .post('/api/v1/ui/applications')
-      .set('Authorization', 'Bearer student_STU001')
+      .set('Authorization', 'Bearer student_STU003')
       .send({
-        student_id: 'STU001',
-        drive_id: 'DRV001',
+        student_id: 'STU003',
+        drive_id: 'DRV002',
         consent: true,
         idempotency_key: key
       })
@@ -119,10 +122,10 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
 
     const res2 = await request(app)
       .post('/api/v1/ui/applications')
-      .set('Authorization', 'Bearer student_STU001')
+      .set('Authorization', 'Bearer student_STU003')
       .send({
-        student_id: 'STU001',
-        drive_id: 'DRV001',
+        student_id: 'STU003',
+        drive_id: 'DRV002',
         consent: true,
         idempotency_key: key
       });
@@ -134,10 +137,10 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('11. Student attempting to submit application for another student returns 403 Forbidden', async () => {
     const res = await request(app)
       .post('/api/v1/ui/applications')
-      .set('Authorization', 'Bearer student_STU001')
+      .set('Authorization', 'Bearer student_STU003')
       .send({
         student_id: 'STU002',
-        drive_id: 'DRV001',
+        drive_id: 'DRV002',
         consent: true
       })
       .expect(403);
@@ -150,7 +153,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
       .post('/api/v1/ui/applications')
       .send({
         student_id: 'STU001',
-        drive_id: 'DRV001',
+        drive_id: 'DRV002',
         consent: true
       })
       .expect(401);
@@ -169,6 +172,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('14. GET /api/v1/ui/eligibility/check/DRV999 returns 404 Not Found for missing drive', async () => {
     const res = await request(app)
       .get('/api/v1/ui/eligibility/check/DRV999?student_id=STU001')
+      .set('Authorization', 'Bearer faculty_FAC001')
       .expect(404);
 
     expect(res.body.error.code).toBe('NOT_FOUND');
@@ -177,6 +181,7 @@ describe('Team D BFF — Placement Drive & Eligibility Workflow', () => {
   it('15. GET /api/v1/ui/eligibility/check/DRV001 returns 404 Not Found for missing student', async () => {
     const res = await request(app)
       .get('/api/v1/ui/eligibility/check/DRV001?student_id=STU999')
+      .set('Authorization', 'Bearer faculty_FAC001')
       .expect(404);
 
     expect(res.body.error.code).toBe('NOT_FOUND');

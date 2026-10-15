@@ -1,56 +1,40 @@
-// Team B — Heap Top-K Ranking Algorithm
-// Uses a min-heap to efficiently find top-K candidates
+// Team B — Heap Top-K: bounded min-heap keeps the K best candidates in O(n log k).
+const { better } = require('./compare');
 
 class HeapTopK {
-  compute(candidates, driveRequirements, graph, k = candidates.length) {
-    // Score each candidate first (same scoring as WeightedScore)
-    const scored = candidates.map(candidate => {
-      let total = 0, maxPossible = 0;
-      for (const req of driveRequirements.required_skills) {
-        maxPossible += req.weight;
-        const edges = graph.getNeighbors ? graph.getNeighbors(candidate.student_id) : [];
-        const match = edges.find(e => e.to === req.name);
-        total += (match ? match.weight : 0) * req.weight;
-      }
-      return { student_id: candidate.student_id, total_score: maxPossible > 0 ? total / maxPossible : 0 };
-    });
+  rank(scored, k = scored.length) {
+    const heap = []; // root = WORST of the kept candidates
+    const worse = (a, b) => better(b, a);
 
-    // Use min-heap to keep top-K
-    const heap = [];
-    const push = (item) => {
-      heap.push(item);
-      let i = heap.length - 1;
+    const up = (i) => {
       while (i > 0) {
-        const p = Math.floor((i - 1) / 2);
-        if (heap[i].total_score < heap[p].total_score) {
-          [heap[i], heap[p]] = [heap[p], heap[i]]; i = p;
-        } else break;
+        const p = (i - 1) >> 1;
+        if (worse(heap[i], heap[p])) { [heap[i], heap[p]] = [heap[p], heap[i]]; i = p; } else break;
       }
     };
-    const pop = () => {
-      const top = heap[0];
-      const last = heap.pop();
-      if (heap.length > 0) {
-        heap[0] = last;
-        let i = 0;
-        while (true) {
-          let s = i, l = 2*i+1, r = 2*i+2;
-          if (l < heap.length && heap[l].total_score < heap[s].total_score) s = l;
-          if (r < heap.length && heap[r].total_score < heap[s].total_score) s = r;
-          if (s !== i) { [heap[i], heap[s]] = [heap[s], heap[i]]; i = s; } else break;
-        }
+    const down = (i) => {
+      for (;;) {
+        let s = i; const l = 2 * i + 1; const r = l + 1;
+        if (l < heap.length && worse(heap[l], heap[s])) s = l;
+        if (r < heap.length && worse(heap[r], heap[s])) s = r;
+        if (s === i) break;
+        [heap[i], heap[s]] = [heap[s], heap[i]]; i = s;
       }
-      return top;
     };
 
     for (const item of scored) {
-      push(item);
-      if (heap.length > k) pop(); // evict lowest scorer
+      if (heap.length < k) { heap.push(item); up(heap.length - 1); }
+      else if (k > 0 && better(item, heap[0])) { heap[0] = item; down(0); }
     }
 
-    // Extract remaining in order (highest score = last popped from min-heap)
     const result = [];
-    while (heap.length > 0) result.unshift(pop());
+    while (heap.length) {
+      const top = heap[0];
+      const last = heap.pop();
+      if (heap.length) { heap[0] = last; down(0); }
+      result.push(top); // worst first
+    }
+    result.reverse();
     return result.map((s, i) => ({ ...s, rank: i + 1, algorithm: 'HEAP_TOPK' }));
   }
 }

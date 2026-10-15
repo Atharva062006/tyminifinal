@@ -70,68 +70,54 @@ function computePlacementReadiness(student) {
 }
 
 class StudentBffController {
+  // GET /api/v1/ui/students  (staff directory)
+  list = async (req, res, next) => {
+    try {
+      const students = await teamCClient.listStudents(req.correlationId, { branch: req.query.branch, q: req.query.q, min_cgpa: req.query.min_cgpa });
+      const withScores = students.map(s => ({ ...s, readiness_score: computePlacementReadiness(s).readiness_score }));
+      sendSuccess(res, withScores, req.correlationId);
+    } catch (err) { next(err); }
+  };
+
+  // POST /api/v1/ui/students  (staff creates a student together with a login)
+  create = async (req, res, next) => {
+    try { sendSuccess(res, await teamCClient.createStudent(req.body || {}, req.user.actor, req.correlationId), req.correlationId, 201); } catch (err) { next(err); }
+  };
+
   // GET /api/v1/ui/students/:studentId
   getProfile = async (req, res, next) => {
     try {
       const { studentId } = req.params;
-      
-      // Student self-access check
       if (req.user?.role === 'student' && req.user?.id !== studentId) {
         throw new ForbiddenError('Students can only view their own profile');
       }
-
       const student = await teamCClient.getStudent(studentId, req.correlationId);
-      if (!student) {
-        throw new NotFoundError('Student', studentId);
-      }
-
-      const readiness = computePlacementReadiness(student);
-      sendSuccess(res, { student, readiness }, req.correlationId);
-    } catch (err) {
-      next(err);
-    }
+      if (!student) throw new NotFoundError('Student', studentId);
+      sendSuccess(res, { student, readiness: computePlacementReadiness(student) }, req.correlationId);
+    } catch (err) { next(err); }
   };
 
-  // PATCH /api/v1/ui/students/:studentId
+  // PATCH /api/v1/ui/students/:studentId — students edit their own profile; staff may edit and verify any
   updateProfile = async (req, res, next) => {
     try {
       const { studentId } = req.params;
-
       if (req.user?.role === 'student' && req.user?.id !== studentId) {
         throw new ForbiddenError('Students can only modify their own profile');
       }
-
-      // Prevent student from altering authoritative academic parameters directly
-      const updates = { ...req.body };
-      if (req.user?.role === 'student') {
-        delete updates.cgpa;
-        delete updates.backlogs;
-        delete updates.attendance;
-        delete updates.branch;
-      }
-
-      const updated = await teamCClient.updateStudent(studentId, updates, req.correlationId);
-      const readiness = computePlacementReadiness(updated);
-      sendSuccess(res, { student: updated, readiness }, req.correlationId);
-    } catch (err) {
-      next(err);
-    }
+      const updated = await teamCClient.updateStudent(studentId, { ...req.body }, req.correlationId, req.user.actor);
+      sendSuccess(res, { student: updated, readiness: computePlacementReadiness(updated) }, req.correlationId);
+    } catch (err) { next(err); }
   };
 
   // GET /api/v1/ui/students/:studentId/readiness
   getReadiness = async (req, res, next) => {
     try {
       const { studentId } = req.params;
+      if (req.user?.role === 'student' && req.user?.id !== studentId) throw new ForbiddenError('Students can only view their own readiness score');
       const student = await teamCClient.getStudent(studentId, req.correlationId);
-      if (!student) {
-        throw new NotFoundError('Student', studentId);
-      }
-
-      const readiness = computePlacementReadiness(student);
-      sendSuccess(res, readiness, req.correlationId);
-    } catch (err) {
-      next(err);
-    }
+      if (!student) throw new NotFoundError('Student', studentId);
+      sendSuccess(res, computePlacementReadiness(student), req.correlationId);
+    } catch (err) { next(err); }
   };
 }
 

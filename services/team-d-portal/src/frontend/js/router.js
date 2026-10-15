@@ -1,140 +1,126 @@
 /**
- * Client-Side SPA Hash Router with Role Guards for Team D Frontend.
+ * Client-side hash router with role guards for the Team D SPA.
+ * Routes flagged `refresh` are re-rendered silently when a live event arrives (D3 freshness).
  */
-
 class Router {
   constructor() {
     this.routes = new Map();
-    window.addEventListener('hashchange', () => this.handleRoute());
+    this.refreshable = false;
+    this.isSilent = false;
+    this.renderToken = 0;
+    window.addEventListener('hashchange', () => { document.body.classList.remove('nav-open'); this.handleRoute(); });
   }
 
-  register(pattern, viewHandler, allowedRoles = []) {
-    this.routes.set(pattern, { viewHandler, allowedRoles });
+  register(pattern, viewHandler, allowedRoles = [], options = {}) {
+    this.routes.set(pattern, { viewHandler, allowedRoles, refresh: Boolean(options.refresh) });
   }
 
-  navigate(path) {
-    window.location.hash = path;
-  }
+  navigate(path) { window.location.hash = path; }
 
-  async handleRoute() {
-    let hash = window.location.hash || '#/';
-    if (hash === '#/' || !hash) {
-      const user = window.store.get('user');
-      if (!user) {
-        window.location.hash = '#/login';
-        return;
-      }
-      if (user.role === 'admin') window.location.hash = '#/admin/dashboard';
-      else if (user.role === 'faculty') window.location.hash = '#/faculty/dashboard';
-      else window.location.hash = '#/student/dashboard';
-      return;
-    }
+  _publicRoute(path) { return path === '/login' || path === '/register'; }
 
-    // Strip query string for route pattern matching
-    const [pathOnly] = hash.split('?');
-    const cleanPath = pathOnly.replace(/^#/, '');
-
+  async handleRoute({ silent = false } = {}) {
+    const hash = window.location.hash || '#/';
     const user = window.store.get('user');
+    const [pathOnly] = hash.split('?');
+    const cleanPath = pathOnly.replace(/^#/, '') || '/';
 
-    // If at login
-    if (cleanPath === '/login') {
+    if (cleanPath === '/' ) {
+      if (!user) { window.location.hash = '#/login'; return; }
+      window.location.hash = window.components.homeFor(user.role);
+      return;
+    }
+
+    if (this._publicRoute(cleanPath)) {
+      if (user && window.api.isAuthenticated()) { window.location.hash = window.components.homeFor(user.role); return; }
       document.body.className = 'auth-layout';
-      document.getElementById('main-content').innerHTML = window.views.renderLoginView();
-      window.views.bindLoginEvents();
+      const main = document.getElementById('main-content');
+      main.innerHTML = cleanPath === '/login' ? window.views.renderLoginView() : window.views.renderRegisterView();
+      if (cleanPath === '/login') window.views.bindLoginEvents(); else window.views.bindRegisterEvents();
       return;
     }
 
-    // If not logged in and not at login, redirect
-    if (!user) {
-      window.location.hash = '#/login';
-      return;
-    }
+    if (!user || !window.api.isAuthenticated()) { window.location.hash = '#/login'; return; }
 
-    document.body.className = '';
+    document.body.classList.remove('auth-layout');
+    if (!silent) this._renderShell();
+    else this._refreshActiveNav();
 
-    // Update shell navigation
-    this._renderShell();
-
-    // Match route
-    let matchedRoute = null;
+    let matched = null;
     let params = {};
-
     for (const [pattern, config] of this.routes.entries()) {
-      const regexPattern = '^' + pattern.replace(/:([a-zA-Z0-9_]+)/g, '(?<$1>[^/]+)') + '$';
-      const match = cleanPath.match(new RegExp(regexPattern));
-      if (match) {
-        matchedRoute = config;
-        params = match.groups || {};
-        break;
-      }
+      const rx = '^' + pattern.replace(/:([a-zA-Z0-9_]+)/g, '(?<$1>[^/]+)') + '$';
+      const m = cleanPath.match(new RegExp(rx));
+      if (m) { matched = config; params = m.groups || {}; break; }
     }
+    if (!matched) { this._renderNotFound(); return; }
 
-    if (!matchedRoute) {
-      this._renderNotFound();
-      return;
-    }
-
-    // Role check (Admin has super-user access to all views)
-    if (matchedRoute.allowedRoles.length > 0 && !matchedRoute.allowedRoles.includes(user.role) && user.role !== 'admin') {
+    const role = user.role === 'tpo' ? 'faculty' : user.role;
+    if (matched.allowedRoles.length && !matched.allowedRoles.includes(role) && role !== 'admin') {
       this._renderForbidden();
       return;
     }
 
-    // Execute view
+    this.refreshable = matched.refresh;
+    this.isSilent = silent;
+    const token = ++this.renderToken;
+    const container = document.getElementById('main-content');
+    const scrollY = silent ? window.scrollY : 0;
     try {
-      await matchedRoute.viewHandler(params);
+      await matched.viewHandler(params);
     } catch (err) {
       console.error('[Router] Error executing view handler:', err);
-      document.getElementById('main-content').innerHTML = window.components.renderError(err, "window.router.handleRoute()");
+      if (token === this.renderToken) container.innerHTML = window.components.renderError(err, 'window.router.handleRoute()');
+    } finally {
+      this.isSilent = false;
     }
+    if (token !== this.renderToken) return; // a newer navigation superseded this render
+    const banner = window.components.degradedBanner(window.store.get('degraded'));
+    if (banner) container.insertAdjacentHTML('afterbegin', banner);
+    if (silent) window.scrollTo(0, scrollY); else window.scrollTo(0, 0);
+    container.focus({ preventScroll: true });
   }
 
   _renderShell() {
-    const sidebarContainer = document.getElementById('sidebar-container');
-    const headerContainer = document.getElementById('header-container');
+    const header = document.getElementById('header-container');
+    const side = document.getElementById('sidebar-container');
+    const footer = document.querySelector('#footer .footer-container, #footer');
+    if (header) { header.innerHTML = window.components.renderHeader(); window.components.bindShell(); }
+    if (side) side.innerHTML = window.components.renderSidebar();
+    const f = document.getElementById('footer');
+    if (f) f.innerHTML = window.components.renderFooter();
+    if (!window.__unreadLoaded) { window.__unreadLoaded = true; window.components.refreshUnread(); }
+  }
 
-    if (sidebarContainer) sidebarContainer.innerHTML = window.components.renderSidebar();
-    if (headerContainer) {
-      headerContainer.innerHTML = window.components.renderHeader();
-
-      const logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-          await window.api.logout();
-          window.sseClient.disconnect();
-          window.location.hash = '#/login';
-        });
-      }
-
-      const mobileBtn = document.getElementById('mobile-menu-btn');
-      if (mobileBtn) {
-        mobileBtn.addEventListener('click', () => {
-          const navBar = document.getElementById('primary-nav-bar');
-          if (navBar) navBar.classList.toggle('mobile-closed');
-        });
-      }
-    }
+  _refreshActiveNav() {
+    const side = document.getElementById('sidebar-container');
+    if (side) side.innerHTML = window.components.renderSidebar();
   }
 
   _renderForbidden() {
     document.getElementById('main-content').innerHTML = `
-      <div class="card" style="text-align: center; padding: 4rem 1rem; max-width: 600px; margin: 3rem auto; border-top: 4px solid var(--accent-rose);">
-        <h2 style="font-size: 2rem; font-weight: 800; color: var(--accent-rose); margin-bottom: 0.5rem;">403 Forbidden</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">You do not have institutional permissions to access this view with your current role.</p>
-        <a href="#/" class="btn btn-primary">Return to My Dashboard</a>
-      </div>
-    `;
+      <div class="card" style="text-align:center;padding:3.5rem 1rem;max-width:560px;margin:3rem auto;border-top:4px solid var(--accent-rose);">
+        <h2 style="color:var(--accent-rose);margin-bottom:.4rem;">Access restricted</h2>
+        <p class="sub" style="margin-bottom:1.25rem;">Your role does not have permission to open this page. The server enforces this independently of what the menu shows.</p>
+        <a href="#/" class="btn btn-primary">Back to my dashboard</a>
+      </div>`;
   }
 
   _renderNotFound() {
     document.getElementById('main-content').innerHTML = `
-      <div class="card" style="text-align: center; padding: 4rem 1rem; max-width: 600px; margin: 3rem auto;">
-        <h2 style="font-size: 2rem; font-weight: 800; color: var(--text-muted); margin-bottom: 0.5rem;">404 Page Not Found</h2>
-        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">The placement portal route you requested does not exist.</p>
-        <a href="#/" class="btn btn-primary">Return to Dashboard</a>
-      </div>
-    `;
+      <div class="card" style="text-align:center;padding:3.5rem 1rem;max-width:560px;margin:3rem auto;">
+        <h2 style="color:var(--text-muted);margin-bottom:.4rem;">Page not found</h2>
+        <p class="sub" style="margin-bottom:1.25rem;">The page you requested does not exist.</p>
+        <a href="#/" class="btn btn-primary">Back to dashboard</a>
+      </div>`;
   }
 }
 
 window.router = new Router();
+
+/** Views call this instead of drawing their own spinner so silent live-refreshes do not flicker. */
+window.components.beginLoad = function (container, message = 'Loading…') {
+  if (window.router.isSilent) return;
+  container.innerHTML = window.components.skeleton(3);
+  container.setAttribute('aria-busy', 'true');
+};

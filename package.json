@@ -18,6 +18,12 @@
     "start:d": "npm start --prefix services/team-d-portal",
     "seed": "node scripts/seed-data.js",
     "health": "node scripts/health-check.js",
-    "test": "npm test --workspaces"
+    "test": "npm test --workspaces --if-present",
+    "reset": "node scripts/reset-data.js",
+    "test:a": "npm test --prefix services/team-a-eligibility",
+    "test:b": "npm test --prefix services/team-b-ranking",
+    "test:c": "npm test --prefix services/team-c-placement",
+    "test:d": "npm test --prefix services/team-d-portal",
+    "kpi": "node scripts/kpi-report.js"
   }
 }

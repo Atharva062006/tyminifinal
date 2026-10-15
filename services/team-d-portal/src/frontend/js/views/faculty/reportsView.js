@@ -1,158 +1,71 @@
 /**
- * Faculty Placement Reports & Export View for RIT Portal.
- * Clean RIT Institutional Design Theme.
+ * Placement performance report (Team C aggregates + engine telemetry) with CSV / JSON export and print.
  */
-
 window.views = window.views || {};
 window.views.faculty = window.views.faculty || {};
 
-window.views.faculty.renderReports = async function() {
-  const container = document.getElementById('main-content');
-  container.innerHTML = window.components.renderLoading('Compiling placement performance report from Team C DBMS...');
+window.views.faculty.renderReports = async function () {
+  const c = document.getElementById('main-content');
+  window.components.beginLoad(c);
+  const f = window.__repF = window.__repF || { branch: '', drive_id: '' };
+  const [res, drives, students] = await Promise.all([
+    window.api.getPlacementReports({ branch: f.branch, drive_id: f.drive_id }),
+    window.api.getDrives(),
+    window.api.getStudents().catch(() => []),
+  ]);
+  const r = res.report || {};
+  const t = r.totals || {};
+  const branches = [...new Set(students.map(s => s.branch))].sort();
+  const tel = res.telemetry || {};
 
-  try {
-    const reportData = await window.api.getPlacementReports();
-    const report = reportData.report || {};
-    const driveStats = report.drive_stats || [];
-
-    container.innerHTML = `
-      <!-- Breadcrumb -->
-      <div id="breadcrumb-bar" style="margin-bottom: 1.25rem;">
-        <span style="color: var(--text-muted);">Home</span> / <strong style="color: var(--rit-navy);">Reports & Data Export</strong>
+  c.innerHTML = `
+    ${window.components.pageHeader({
+      title: 'Placement performance report', subtitle: `Generated ${fmt.dateTime(r.generated_at)}${r.query_time_ms !== undefined ? ` · query ${r.query_time_ms} ms (B-tree / hash indexed)` : ''}`,
+      tags: [['C', 'indexed reporting queries'], ['B', 'telemetry'], ['A', 'telemetry']],
+      actions: `<div class="row no-print">
+        <button class="btn btn-secondary btn-sm" data-exp="placement_performance:csv">CSV summary</button>
+        <button class="btn btn-secondary btn-sm" data-exp="branch_performance:csv">CSV by branch</button>
+        <button class="btn btn-secondary btn-sm" data-exp="drive_performance:csv">CSV by drive</button>
+        <button class="btn btn-secondary btn-sm" data-exp="placement_performance:json">JSON</button>
+        <button class="btn btn-primary btn-sm" id="print-rep">Print / PDF</button></div>`,
+    })}
+    <div class="filter-bar no-print">
+      <select id="rp-branch" class="form-control" aria-label="Branch"><option value="">All branches</option>${branches.map(b => `<option ${f.branch === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>
+      <select id="rp-drive" class="form-control" aria-label="Drive"><option value="">All drives</option>${drives.map(d => `<option value="${esc(d.drive_id)}" ${f.drive_id === d.drive_id ? 'selected' : ''}>${esc(d.title)}</option>`).join('')}</select>
+    </div>
+    <div class="kpi-grid">
+      ${window.components.kpi({ label: 'Applications', value: t.total_applications })}
+      ${window.components.kpi({ label: 'Selected', value: t.total_selected, tone: 'purple', meta: `conversion ${esc(t.overall_conversion || '0%')}` })}
+      ${window.components.kpi({ label: 'Offers issued', value: t.total_offers_issued, tone: 'cyan' })}
+      ${window.components.kpi({ label: 'Offers accepted', value: t.total_offers_accepted, tone: 'green' })}
+      ${window.components.kpi({ label: 'Students placed', value: t.students_placed ?? '—', tone: 'amber', meta: t.total_students ? `of ${esc(t.total_students)}` : '' })}
+    </div>
+    <div class="card" style="margin-bottom:1.25rem;"><div class="card-head"><h3>Drive-wise</h3></div>
+      ${window.components.renderDataTable({ columns: [
+        { label: 'Drive', render: x => `<b>${esc(x.title)}</b><br><span class="muted small">${esc(x.drive_id)}</span>` }, { label: 'State', render: x => window.components.renderBadge(x.state) },
+        { label: 'Seats', render: x => `${esc(x.seats_remaining)} / ${esc(x.seats_total)}` }, { label: 'Applied', render: x => esc(x.applications) }, { label: 'Shortlisted+', render: x => esc(x.shortlisted ?? '—') },
+        { label: 'Selected', render: x => esc(x.selected) }, { label: 'Offers', render: x => `${esc(x.offers_issued)} (${esc(x.offers_accepted ?? 0)} accepted)` }, { label: 'Package', render: x => esc(fmt.money(x.package_lpa)) }, { label: 'Conversion', render: x => `<b>${esc(x.conversion_rate)}</b>` },
+      ], rows: r.drive_stats || [], emptyMessage: 'No drives.' })}</div>
+    <div class="grid cols-2" style="margin-bottom:1.25rem;">
+      <div class="card"><div class="card-head"><h3>Branch-wise</h3></div>
+        ${window.components.renderDataTable({ columns: [
+          { label: 'Branch', render: x => `<b>${esc(x.branch)}</b>` }, { label: 'Students', render: x => esc(x.total_students) }, { label: 'Applications', render: x => esc(x.applications) }, { label: 'Placed', render: x => esc(x.placed_students ?? x.selected) }, { label: 'Placement rate', render: x => `<b>${esc(x.placement_rate || x.conversion_rate)}</b>` },
+        ], rows: r.branch_stats || [], emptyMessage: 'No data.' })}</div>
+      <div class="card"><div class="card-head"><h3>Package distribution</h3></div>
+        ${r.package_distribution ? `<dl class="kv"><dt>Offers counted</dt><dd>${esc(r.package_distribution.count)}</dd><dt>Minimum</dt><dd>${esc(fmt.money(r.package_distribution.min_lpa))}</dd><dt>Average</dt><dd><b>${esc(fmt.money(r.package_distribution.avg_lpa))}</b></dd><dt>Maximum</dt><dd>${esc(fmt.money(r.package_distribution.max_lpa))}</dd></dl>` : '<p class="sub">No offers issued yet.</p>'}
       </div>
+    </div>
+    <div class="card"><div class="card-head"><h3>Engine telemetry snapshot</h3><span class="small muted">benchmark evidence lives under System &amp; Engines</span></div>
+      <div class="grid cols-2"><dl class="kv small"><dt>${window.components.teamTag('A')}</dt><dd></dd><dt>p95 decision latency</dt><dd>${esc(tel.team_a_eligibility?.p95_decision_latency_ms ?? '—')} ms</dd><dt>Throughput</dt><dd>${esc(tel.team_a_eligibility?.throughput_per_sec ?? '—')} / s</dd><dt>Active leases</dt><dd>${esc(tel.team_a_eligibility?.active_leases ?? '—')}</dd></dl>
+      <dl class="kv small"><dt>${window.components.teamTag('B')}</dt><dd></dd><dt>p95 ranking latency</dt><dd>${esc(tel.team_b_ranking?.p95_ranking_latency_ms ?? '—')} ms</dd><dt>Cache hit rate</dt><dd>${esc(tel.team_b_ranking?.cache_hit_rate_pct ?? '—')}%</dd><dt>Graph version</dt><dd>${esc(tel.team_b_ranking?.graph_version ?? '—')}</dd></dl></div>
+    </div>`;
 
-      <!-- Page Header -->
-      <div style="margin-bottom: 1.75rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div>
-            <h1 style="font-size: 1.85rem; font-weight: 800; color: var(--rit-navy); margin-bottom: 0.25rem;">Institutional Placement Performance Reports</h1>
-            <p style="color: var(--text-secondary); font-size: 0.92rem;">Authoritative placement statistics generated by Team C DBMS Engine.</p>
-          </div>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <button id="export-csv-btn" class="btn btn-secondary">Export CSV</button>
-            <button id="export-json-btn" class="btn btn-secondary">Export JSON</button>
-            <button id="print-report-btn" class="btn btn-primary" style="background: var(--rit-blue);">Print / PDF</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Printable Institutional Report Card -->
-      <div class="card" id="printable-report">
-        <div class="card-header">
-          <div>
-            <h3 class="card-title">Placement Drive Conversion & Capacity Audit</h3>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">Generated: ${new Date(report.generated_at || Date.now()).toLocaleString()}</span>
-          </div>
-          <span class="badge badge-selected">Report ID: RPT-${Date.now().toString().slice(-6)}</span>
-        </div>
-
-        ${window.components.renderDataTable({
-          columns: [
-            { label: 'Drive Title', render: r => `<strong style="color: var(--rit-navy);">${r.title}</strong>` },
-            { label: 'Total Seats', render: r => r.seats_total || 10 },
-            { label: 'Remaining', render: r => r.seats_remaining || 0 },
-            { label: 'Applicants', render: r => r.applications || 0 },
-            { label: 'Selected', render: r => `<strong style="color: var(--accent-emerald);">${r.selected || 0}</strong>` },
-            { label: 'Offers Issued', render: r => r.offers_issued || 0 },
-            { label: 'Package (LPA)', render: r => r.package_lpa ? `₹${(r.package_lpa / 100000).toFixed(1)} LPA` : '—' },
-            { label: 'Conversion Rate', render: r => `<span class="badge badge-applied">${r.conversion_rate || '0%'}</span>` }
-          ],
-          rows: driveStats,
-          emptyMessage: 'No drive statistics available for reporting.'
-        })}
-
-        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.5rem;">
-          <div>RIT Placement Performance Analytics • Academic Year 2026-27</div>
-          <div>Verified via Team C DBMS Engine</div>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('print-report-btn').addEventListener('click', () => {
-      window.print();
-    });
-
-    // Safe CSV Exporter with Formula & XSS Escaping Protection
-    document.getElementById('export-csv-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('export-csv-btn');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '⌛ Exporting...';
-      btn.disabled = true;
-
-      try {
-        if (!driveStats || driveStats.length === 0) {
-          window.toast.warning('No report data available to export');
-          return;
-        }
-
-        // CSV Formula & Injection Sanitizer: Prevents '= ', '+', '-', '@' exploits
-        const sanitizeCsvCell = (val) => {
-          let str = String(val ?? '');
-          if (/^[=\+\-@\t\r]/.test(str)) {
-            str = "'" + str; // Prefix single quote to neutralize formula injection
-          }
-          return `"${str.replace(/"/g, '""')}"`;
-        };
-
-        const headers = ['Drive Title', 'Total Seats', 'Remaining Seats', 'Applicants', 'Selected', 'Offers Issued', 'Package (LPA)', 'Conversion Rate'];
-        const rows = driveStats.map(r => [
-          sanitizeCsvCell(r.title || ''),
-          r.seats_total || 0,
-          r.seats_remaining || 0,
-          r.applications || 0,
-          r.selected || 0,
-          r.offers_issued || 0,
-          r.package_lpa ? (r.package_lpa / 100000).toFixed(1) : 0,
-          sanitizeCsvCell(r.conversion_rate || '0%')
-        ]);
-
-        const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `RIT_Placement_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        window.toast.success('Placement report exported as CSV file');
-      } catch (err) {
-        window.toast.error('Failed to export CSV: ' + err.message);
-      } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-      }
-    });
-
-    // JSON Exporter
-    document.getElementById('export-json-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('export-json-btn');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '⌛ Exporting...';
-      btn.disabled = true;
-
-      try {
-        const jsonStr = JSON.stringify(reportData, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `RIT_Placement_Report_${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        window.toast.success('Placement report exported as JSON file');
-      } catch (err) {
-        window.toast.error('Failed to export JSON: ' + err.message);
-      } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-      }
-    });
-
-  } catch (err) {
-    container.innerHTML = window.components.renderError(err, "window.views.faculty.renderReports()");
-  }
+  const reload = () => window.views.faculty.renderReports();
+  document.getElementById('rp-branch').addEventListener('change', e => { f.branch = e.target.value; reload(); });
+  document.getElementById('rp-drive').addEventListener('change', e => { f.drive_id = e.target.value; reload(); });
+  document.getElementById('print-rep').addEventListener('click', () => window.print());
+  c.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', async () => {
+    const [type, format] = b.dataset.exp.split(':');
+    await window.components.runAction(b, () => window.api.downloadReport(type, format, { branch: f.branch || 'ALL' }), { success: 'Export downloaded' });
+  }));
 };

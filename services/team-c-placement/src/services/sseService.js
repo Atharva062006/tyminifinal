@@ -22,6 +22,7 @@ class SseService {
     this._heartbeatInterval = setInterval(() => {
       this._sendToAll(':heartbeat\n\n');
     }, 15000);
+    if (this._heartbeatInterval.unref) this._heartbeatInterval.unref();
   }
 
   /**

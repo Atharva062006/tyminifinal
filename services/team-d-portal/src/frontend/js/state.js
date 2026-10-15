@@ -1,25 +1,20 @@
 /**
- * Central State Store for Team D Frontend SPA.
- * Manages reactive UI state, active user, toast alerts, cached drives, and live stream status.
+ * Central State Store for the Team D Frontend SPA.
+ * Reactive UI state: active user, live-stream status, degraded-engine flags, unread notification count.
  */
-
 class StateStore {
   constructor() {
     this.listeners = new Map();
     this.state = {
-      user: window.api.getUser(),
-      currentRoute: window.location.hash || '#/login',
+      user: window.api.isAuthenticated() ? window.api.getUser() : null,
       streamStatus: 'OFFLINE', // 'LIVE', 'RECONNECTING', 'DISCONNECTED', 'OFFLINE'
       lastEventTime: null,
-      drivesCache: [],
-      activeModal: null,
-      isMobileSidebarOpen: false
+      degraded: null,
+      unreadCount: 0,
     };
   }
 
-  get(key) {
-    return this.state[key];
-  }
+  get(key) { return this.state[key]; }
 
   set(key, value) {
     this.state[key] = value;
@@ -28,15 +23,11 @@ class StateStore {
 
   update(patch) {
     Object.assign(this.state, patch);
-    for (const key of Object.keys(patch)) {
-      this.emit(key, patch[key]);
-    }
+    for (const key of Object.keys(patch)) this.emit(key, patch[key]);
   }
 
   subscribe(key, callback) {
-    if (!this.listeners.has(key)) {
-      this.listeners.set(key, new Set());
-    }
+    if (!this.listeners.has(key)) this.listeners.set(key, new Set());
     this.listeners.get(key).add(callback);
     return () => this.listeners.get(key).delete(callback);
   }

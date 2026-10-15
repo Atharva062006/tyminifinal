@@ -2,61 +2,40 @@
 
 ## Core Directives
 1. **No External Databases**: This project implements a custom DBMS engine from scratch in JSON. Do NOT install MongoDB, PostgreSQL, SQLite, Prisma, Sequelize, etc. Data persistence is strictly handled by `services/team-c-placement` manipulating JSON files.
-2. **From-Scratch Data Structures**: All algorithms must use from-scratch implementations. E.g., B-Trees, Hash Maps, Tries, Decision Trees, Graph algorithms. Do not import `lodash` or external NPM algorithm packages.
+2. **From-Scratch Data Structures**: All algorithms must use from-scratch implementations (B-Trees, hash indexes, AVL trees, Tries, heaps, queues, decision trees, graphs, merge sort). Do not import `lodash` or external algorithm packages.
 3. **Strict Team Boundaries**:
-   - **Team A (Eligibility)**: Decision Trees, Queues. Read-only direct DB. Must use HTTP APIs for mutations.
-   - **Team B (Ranking)**: Graph matching, MST, Tries. Must use HTTP APIs.
-   - **Team C (Placement/DB)**: Authoritative DB engine. ACID transactions, Lock Manager, WAL. Owns all API endpoints on port 3003.
-   - **Team D (Portal)**: UI and API Gateway. Consumes Team C's REST APIs and SSE stream.
-4. **Shared Module**: Always use the `shared/` package for the `X-Correlation-ID` middleware, standardized error handling, and `sendSuccess` response formats.
-5. **Idempotency**: All cross-service mutating POST/PUT requests must implement and pass an `Idempotency-Key` header. Team C enforces this via `idempotencyService.js` and the `checkIdempotency` middleware.
-6. **Living Documentation**: Agents MUST update `AI_DEVELOPMENT_GUIDE.md` and `.agents/AGENTS.md` whenever significant architectural changes, new services, or structural modifications are made to accurately reflect the current state of the project.
+   - **Team A (Eligibility, port 3001)**: rule chaining (decision tree / sequential AND / weighted priority), request queues (FIFO / circular / priority / heap + aging), slot lease manager + wait-for graph, telemetry. Holds **no** master data: it receives student/criteria snapshots in requests.
+   - **Team B (Ranking, port 3002)**: skill/requirement graph (adjacency list + matrix), ranking (weighted score / heap Top-K / merge sort), AVL + hash shortlist index, ranking cache, Trie, cohort analytics. Profiles are pushed to it by Team C (or inline in a request).
+   - **Team C (Placement/DB, port 3003)**: authoritative DB engine and **the only service that writes data files**. Owns accounts, the application state machine, the orchestration of A and B, seats, interviews, offers, notifications, audit.
+   - **Team D (Portal, port 3000)**: BFF + SPA. Consumes Team C's REST API, calls A/B only for read-style computations (eligibility check, ranking preview, metrics, benchmarks). Never mutates application state itself.
+4. **Shared Module**: Always use the `shared/` package for the `X-Correlation-ID` middleware, standardized error handling, `sendSuccess` envelopes, `constants.js` (state machine) and `token.js` (signed sessions).
+5. **Idempotency**: Cross-service mutating POST/PUT requests carry an `Idempotency-Key`. Team C enforces it for applications (`idempotencyService.js` + per-key/per-pair logical locks).
+6. **Living Documentation**: Agents MUST update `AI_DEVELOPMENT_GUIDE.md` and `.agents/AGENTS.md` whenever significant architectural changes, new services, or structural modifications are made.
+7. **Honest degradation**: The BFF must never present fallback/mock data as live. Team A/B fallbacks set `meta.degraded` (shown as a banner); Team C failures are explicit 503s. Mock adapters are used only when `MOCK_TEAM_*=true` (unit tests / offline demo).
+8. **Provenance tags**: UI pages show a tiny `Team X · capability` tag (`window.components.teamTag`). Keep tags accurate when adding screens.
 
 ## Team C — Implemented API Surface (Port 3003)
+All routes are under `/api/v1` (internal ones under `/api/v1/internal`). Everything except `auth/register`, `auth/login`, `stream` and `/health` requires either a signed session token (`Authorization: Bearer …`) or the trusted-service headers (`X-Internal-Secret` + optional `X-Actor-Id` / `X-Actor-Role` / `X-Actor-Name`).
 
-All routes are mounted under `/api/v1`. Internal routes (service-to-service) are under `/api/v1/internal`.
-
-### Master Data (C1)
-- `POST   /api/v1/companies` — Create a company
-- `GET    /api/v1/companies` — List all companies
-- `GET    /api/v1/companies/:companyId` — Get company by ID
-- `POST   /api/v1/students` — Create a student
-- `POST   /api/v1/drives` — Create a drive (requires `company_id`)
-- `GET    /api/v1/drives` — List drives (optional `?state=OPEN`)
-- `GET    /api/v1/drives/:driveId` — Get drive by ID
-- `GET    /api/v1/drives/:driveId/criteria` — Get drive eligibility criteria
-- `PATCH  /api/v1/internal/drives/:driveId` — Update drive state/fields
-
-### Applications (C2)
-- `POST   /api/v1/applications` — Create application (idempotent via `idempotency_key`)
-- `GET    /api/v1/applications` — List applications (filter: `?student_id`, `?drive_id`, `?state`)
-- `GET    /api/v1/applications/:applicationId` — Get application by ID
-- `POST   /api/v1/applications/:applicationId/withdraw` — Withdraw an application
-
-### Offers & Compensation (C3)
-- `POST   /api/v1/internal/offers/commit` — Atomically commit a state transition (with seat claim on SELECTED, offer commit on OFFER_ISSUED)
-- `POST   /api/v1/internal/offers/compensate` — Roll back a failed workflow step
-
-### Audit, Reports & Recovery (C4)
-- `GET    /api/v1/audit` — Query append-only audit log (filter by correlation_id, record_id, date range)
-- `GET    /api/v1/reports/placement-performance` — Placement report with branch breakdown, package distribution, conversion rates
-- `POST   /api/v1/internal/recovery/verify` — Trigger WAL recovery verification
-
-### SSE Event Stream (C4 Outbox)
-- `GET    /api/v1/stream` — Server-Sent Events stream. Emits `audit` events on every data mutation. Team D connects here for live dashboard updates.
+- **Auth & users**: `POST auth/register` (student self-registration) · `POST auth/login` · `GET auth/me` · `POST auth/change-password` · `GET|POST users`, `PATCH users/:id` (admin)
+- **Master data (C1)**: `companies` (POST, GET, GET/:id, PATCH/:id) · `students` (GET list [staff], GET/:id, POST [staff creates student + login], PATCH/:id [self or staff]) · `drives` (POST, GET, GET/:id, GET/:id/criteria, `PATCH internal/drives/:id`)
+- **Applications (C2)**: `POST applications` (idempotent; runs Team A evaluate → Team B rank) · `GET applications[?student_id,drive_id,state]` · `GET applications/:id` · `GET applications/:id/details` (decisions, interviews, offers, audit) · `POST applications/:id/withdraw` · `POST applications/:id/transition` `{target_state, reason, payload, expected_version}` · `POST applications/:id/interviews` · `POST applications/:id/reevaluate`
+- **Interviews / offers / notifications**: `GET interviews`, `PATCH interviews/:id` · `GET offers` · `GET notifications`, `PATCH notifications/:id/read`, `POST notifications/read-all` · `announcements` (GET, POST, DELETE)
+- **Commit & compensation (C3)**: `POST internal/offers/commit` · `POST internal/offers/compensate` · `POST internal/pipeline/retry`
+- **Audit, reports, recovery (C4)**: `GET audit` · `GET reports/placement-performance` · `GET reports/reconciliation` · `POST internal/recovery/{verify,backup,verify-restore}`
+- **SSE outbox**: `GET stream` — named events `audit`, `state_change`, `notification` (the BFF relays them as typed JSON messages).
 
 ## Application State Machine
-Full state flow (defined in `shared/constants.js`):
+Defined in `shared/constants.js`, enforced only by Team C (`stateMachineService.js`, `workflowService.js`):
 ```
-APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED
+APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED → OFFER_ACCEPTED
 ```
-Alternative outcomes: `NOT_ELIGIBLE`, `WAITLISTED`, `WITHDRAWN`, `EXPIRED`, `COMPENSATION_REQUIRED`
-
-Only Team C's `stateMachineService.js` enforces valid transitions. All other teams receive the current state via API — they must never modify it directly.
+Alternative outcomes: `NOT_ELIGIBLE`, `WAITLISTED`, `REJECTED`, `WITHDRAWN`, `OFFER_DECLINED`, `EXPIRED`, `COMPENSATION_REQUIRED`.
+Seats are claimed at `SELECTED` and returned when a seat-holding application is rejected, withdrawn, declined or compensated. Interview slots are Team A exclusive leases, released on completion/cancel/reject/withdraw.
 
 ## Workflow
-- `npm run start:all` — Spin up all 4 microservices (ports 3000–3003).
-- `npm run start:c` — Start only Team C on port 3003.
-- `npm run seed` — Pre-populate DB with deterministic test data.
-- `npm run health` — Ping all 4 services.
-- Refer to `AI_DEVELOPMENT_GUIDE.md` and `RIT_Placement_Eligibility_System_Design_APIs_Sequences_KPIs by GSW.md` for full architectural constraints.
+- `npm run start:all` — start all four services · `start:a|b|c|d` for one
+- `npm run reset` — wipe Team C data (re-seeds on next start) · `npm run seed` — seed an empty DB (`--force` to re-create)
+- `npm run health` — ping the four services · `npm test` / `test:a|b|c|d` — run tests
+- `npm run kpi` — run the KPI acceptance checks against a running stack → `docs/kpi/KPI_REPORT.md`
+- Refer to `AI_DEVELOPMENT_GUIDE.md` and the design document for full constraints.

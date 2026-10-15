@@ -1,244 +1,159 @@
 # RIT — Campus Placement & Eligibility System
 
-**Rajarambapu Institute of Technology (RIT)**  
-*Rule-Based Placement Eligibility, DS Candidate Ranking & Data-Driven Analytics System*
+**Rajarambapu Institute of Technology (RIT)** · *Rule-based placement eligibility, DS candidate ranking & data-driven analytics*
+
+Four cooperating services — each owned by one academic team — behind a single web portal:
+
+| Service | Port | Domain | What it owns |
+| :-- | :-: | :-- | :-- |
+| **Team A** `team-a-eligibility` | 3001 | Operating Systems | Rule-chaining engine (decision tree · sequential AND · weighted priority), per-drive request queues (FIFO · circular · priority · heap) with aging, interview-slot lease manager with wait-for-graph deadlock detection, telemetry + SSE |
+| **Team B** `team-b-ranking` | 3002 | Data Structures | Versioned skill/requirement graph (adjacency list **and** matrix), ranking (weighted score · heap Top-K · merge sort), AVL-tree + hash shortlist index, version-aware cache, Trie skill suggestions, cohort analytics with complexity evidence |
+| **Team C** `team-c-placement` | 3003 | DBMS | **The only database.** Custom JSON DBMS (ACID transactions, WAL, row locks, B-tree + hash indexes, constraints, migrations), accounts, application state machine, orchestration of A and B, interviews, offers, seats, notifications, audit, reports, backup/recovery |
+| **Team D** `team-d-portal` | 3000 | Web Technology | Backend-for-frontend (role guards, aggregation, SSE relay, CSV export) and the vanilla-JS single-page portal |
+
+Every screen of the portal carries a tiny tag (e.g. `● Team A · rule engine`) showing which team's capability it exposes.
 
 ---
 
-## Executive Overview
-
-The **RIT Campus Placement & Eligibility System** is an enterprise-grade multi-tier microservices platform designed to automate student placement workflows, criteria eligibility evaluations, candidate skill graph rankings, formal offer lifecycles, and institutional analytics for Rajarambapu Institute of Technology.
-
-The platform is engineered around **4 specialized microservices** (Teams A, B, C, and D) operating over standardized REST APIs with distributed tracing (`X-Correlation-ID`) and Server-Sent Events (SSE) real-time outbox streaming.
-
----
-
-## Architecture & Team Boundaries
-
-```mermaid
-graph TD
-    Client["Browser SPA (Team D UI)"] -->|HTTPS / REST & SSE| BFF["Team D — Web Portal & BFF (Port 3000)"]
-    
-    subgraph "Microservices Cluster"
-        BFF -->|OS Rule-Chaining| TeamA["Team A — OS Eligibility Engine (Port 3001)"]
-        BFF -->|Graph Skill Matching & Heap Top-K| TeamB["Team B — DS Ranking Engine (Port 3002)"]
-        BFF -->|ACID Persistence, WAL & Transactions| TeamC["Team C — Placement DBMS Engine (Port 3003)"]
-    end
-```
-
-### Team Responsibilities
-
-| Service | Domain | Primary Responsibilities | Port |
-| :--- | :--- | :--- | :--- |
-| **Team A** | OS Eligibility Engine | Decision Tree Rule-Chaining, Slot Lock Manager, Queue Scheduling & Criterion Breakdown | `3001` |
-| **Team B** | DS Ranking Engine | Weighted Skill Graph Matching, HeapTopK ($O(N \log K)$), MergeSort & Scoring Telemetry | `3002` |
-| **Team C** | Placement DBMS Engine ★ | Single Source of Truth, ACID Storage Engine, Write-Ahead Logging (WAL), SSE Outbox & Audit Logs | `3003` |
-| **Team D** | Web Portal & BFF | Glassmorphism UI SPA, Backend-for-Frontend (BFF), Role Security, Analytics, CSV Export & SSE Proxy | `3000` |
-
----
-
-## Core Technologies & Custom Algorithms
-
-1. **Custom JSON DBMS (Team C)**: Built from scratch without external databases (MongoDB, PostgreSQL, SQLite, etc.). Implements ACID-compliant JSON storage, WAL recovery log, two-phase locking (2PL), idempotency caching, and Server-Sent Events (SSE) outbox mutation streaming.
-2. **From-Scratch Data Structures & Algorithms**:
-   - **Team A**: OS Decision Tree Rule Evaluator, FIFO Queue Scheduler, Criteria Match Matrix.
-   - **Team B**: Weighted Skill Graph Matcher, Min-Heap Top-K Shortlister, Stable MergeSort Candidate Leaderboard.
-3. **Frontend & Styling**: Modern Vanilla JS Single Page Application (SPA), HSL dark-mode glassmorphism design system, Outfit typography, responsive CSS grid, ARIA landmark roles, and real-time notification drawer.
-4. **Security & Protection**: Server-side RBAC, JWT session handling, rate limiting (`429`), XSS HTML escaping, and CSV formula injection sanitization.
-
----
-
-## Application State Machine
-
-All application state transitions are strictly governed by Team C's `stateMachineService.js`:
-
-```
-APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED → OFFER_ACCEPTED
-                                     ↘ NOT_ELIGIBLE                                          ↘ OFFER_DECLINED
-                                     ↘ WAITLISTED                                            ↘ WITHDRAWN
-```
-
----
-
-## Installation & Setup
-
-### Prerequisites
-
-- **Node.js**: `v18.0.0` or higher
-- **npm**: `v9.0.0` or higher
-
-### 1. Clone & Install Dependencies
+## Quick start
 
 ```bash
-# Install dependencies across root and microservices
 npm install
+npm run start:all        # starts Teams A, B, C, D (ports 3001, 3002, 3003, 3000)
+# open http://localhost:3000
 ```
 
-### 2. Environment Configuration
+The first start of Team C seeds demo data automatically (8 students, 5 companies, 6 drives, 8 applications in varied states).
+To start over: `npm run reset` (wipes `services/team-c-placement/data`) and start again.
 
-Copy `.env.example` to create your local `.env` configuration:
+### Demo accounts
 
-```bash
-cp .env.example .env
-```
+| Role | E-mail | Password |
+| :-- | :-- | :-- |
+| Student (shortlisted) | `aarav@rit.edu` | `student123` |
+| Student (has an offer) | `ananya@rit.edu` | `student123` |
+| Other students | `rohan@`, `devraj@`, `isha@`, `kabir@`, `neha@`, `omkar@rit.edu` | `student123` |
+| Faculty / TPO | `tpo@rit.edu` | `faculty123` |
+| Placement Admin | `admin@rit.edu` | `admin123` |
+| Auditor (read-only) | `auditor@rit.edu` | `auditor123` |
 
-Default configuration in `.env`:
+New students can register themselves on the sign-in page (**Create your account**); staff accounts are created by an admin under *Users & roles*.
+
+### Configuration (`.env`, optional)
 
 ```ini
-NODE_ENV=development
-PORT=3000
-
 TEAM_A_URL=http://localhost:3001
 TEAM_B_URL=http://localhost:3002
 TEAM_C_URL=http://localhost:3003
-TEAM_C_STREAM_URL=http://localhost:3003/api/v1/stream
-
-INTERNAL_SERVICE_SECRET=rit_placement_internal_secret_key
-JWT_SECRET=rit_placement_jwt_signing_secret
-
-MOCK_MODE=false
+INTERNAL_SERVICE_SECRET=rit_placement_internal_secret_key   # BFF ↔ Team C trust
+JWT_SECRET=rit_placement_jwt_signing_secret                 # signs session tokens
+AUTO_SEED=true                                              # seed demo data when Team C's DB is empty
+MOCK_TEAM_A=false  MOCK_TEAM_B=false  MOCK_TEAM_C=false     # true = in-memory adapters (offline demos / unit tests)
 ```
 
 ---
 
-## Running the Project
+## How the pieces work together
 
-### Start All Services (Ports 3000–3003)
+```
+Browser SPA ──REST/SSE──▶ Team D BFF ──▶ Team C  ──▶ Team A  (evaluate rules, lease interview slots)
+   (role-aware)            (RBAC, aggregation)  │ └──▶ Team B  (profiles, ranking)
+                                                └── JSON DBMS (WAL, ACID, indexes)
+```
+
+**Apply → Evaluate → Rank → Review → Interview → Select → Offer** (all state changes live in Team C):
+
+1. Student applies (idempotent). Team C inserts the application under logical locks — duplicates are impossible, even under 10,000 concurrent attempts.
+2. Team C asks **Team A** to evaluate the student against the drive's rule set → `RULE_EVALUATED` (or `NOT_ELIGIBLE` with the failed rules).
+3. Team C asks **Team B** to rank the applicant among eligible candidates (rank/score stored; if B is down the application stays valid with `ranking_status: DEGRADED`).
+4. Faculty/admin **shortlist, waitlist or reject**; **schedule interviews** (an exclusive slot lease is taken from Team A — a clash is refused with 409); **mark selected** (claims a seat atomically); **issue the offer**.
+5. The student **accepts or declines**; declining returns the seat. Every step writes audit + notifications and is pushed live to open browsers over SSE.
+
+If Team A or B is unreachable the portal says so (degraded banner) — it never silently presents fallback data as live. Team C unavailable ⇒ explicit `503`.
+
+```
+APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED → OFFER_ACCEPTED
+                  ↘ NOT_ELIGIBLE        ↘ WAITLISTED / REJECTED / WITHDRAWN        ↘ OFFER_DECLINED
+```
+
+---
+
+## Who can do what
+
+| Action | Student | Faculty / TPO | Admin | Auditor |
+| :-- | :-: | :-: | :-: | :-: |
+| Browse drives, check eligibility, see own rank | ✅ | ✅ | ✅ | ✅ |
+| Edit own profile (skills, projects, links, academics*) | ✅ | – | – | – |
+| Apply / withdraw / accept or decline own offer | ✅ | – | – | – |
+| Shortlist · waitlist · reject · interview · select · offer | – | ✅ | ✅ | – |
+| Create/edit drives, companies; register & verify students | – | ✅ | ✅ | – |
+| Post announcements; rankings console; analytics; reports & CSV/JSON export | – | ✅ | ✅ | read |
+| Users & roles, engine benchmarks, recovery tools | – | – | ✅ | read |
+| Audit log, reconciliation | – | – | ✅ | ✅ |
+
+\* A student's academic edits mark the record *unverified* until staff verify it.
+
+Authorisation is enforced twice: by the BFF route guards **and** again by Team C using the acting user's role.
+
+---
+
+## API surface
+
+### Team D BFF — `/api/v1/ui` (what the browser uses)
+
+`session` · `register` · `me` · `me/password` · `dashboard` · `stream` (SSE) · `notifications` · `announcements` · `students` (+`/:id`, `/:id/readiness`) · `companies` · `drives` · `eligibility/check/:driveId` · `applications` (+ `/:id/{withdraw,shortlist,reject,waitlist,interviews,select,offer,offer-decision,reevaluate}`) · `interviews` · `offers` · `rankings` (+`/preview`) · `analytics` · `reports/{placement-performance,export}` · `audit` · `users` · `system` (+ benchmarks, queue policy, locks, deadlock analyser, shortlist lookup, cache invalidate, reconciliation, recovery)
+
+### Team C — `/api/v1` (authoritative)
+`auth/{register,login,me,change-password}` · `users` · `companies` · `students` · `drives` (+`/criteria`) · `applications` (+`/details`, `/transition`, `/interviews`, `/reevaluate`, `/withdraw`) · `interviews` · `offers` · `notifications` · `announcements` · `audit` · `reports/{placement-performance,reconciliation}` · `internal/{offers/commit,offers/compensate,drives/:id,pipeline/retry,recovery/{verify,backup,verify-restore}}` · `stream` (SSE outbox)
+
+### Team A — port 3001
+`POST /api/v1/eligibility/requests` · `GET /requests/:id` · `GET /decisions/:id` · `GET /api/v1/drives/:id/queue` · `POST /internal/v1/rules/evaluate` · `POST|GET|DELETE /internal/v1/locks…` · `POST /internal/v1/deadlocks/analyse` · `GET /api/v1/metrics/eligibility` · `GET /api/v1/stream/eligibility` · `POST /internal/v1/benchmark` · `GET|PUT /internal/v1/policy`
+
+### Team B — port 3002
+`POST /api/v1/rankings/compute` · `GET /rankings/:id` · `GET /api/v1/profiles` · `PUT /internal/v1/profiles/{students,drives}/:id` · `POST /internal/v1/profiles/sync` · `GET /internal/v1/shortlist-index/:key` · `POST /internal/v1/shortlist-cache/invalidate` · `POST /api/v1/analytics/analyse` · `GET /api/v1/metrics/ranking` · `POST /internal/v1/benchmark`
+
+All responses use the shared envelope (`{ data, meta:{correlation_id, …} }` / `{ error:{code,message,details} }`); every request carries `X-Correlation-ID`; creates carry `Idempotency-Key`.
+
+---
+
+## Testing & KPI evidence
 
 ```bash
-npm run start:all
+npm test            # all four workspaces (Team A 15 · B 13 · C 30 · D 128 tests)
+npm run test:a|b|c|d
+
+npm run reset && npm run start:all     # fresh stack
+npm run kpi                            # runs the KPI acceptance checks against the live stack
 ```
 
-### Start Team C Standalone
+`npm run kpi` writes **`docs/kpi/KPI_REPORT.md`** (+ raw JSON): rule-evaluation correctness, decision latency, slot-allocation safety under 10,000 concurrent attempts, deadlock detection, ranking latency/optimality, AVL-vs-hash lookups, cache hit-rate, 10,000-way concurrent application safety, idempotency, audit coverage, recovery RTO/RPO, 200-concurrent-user reliability, traceability and more. The committed report is from the last run on the development machine; thresholds are the course targets from the design document.
 
-```bash
-npm run start:c
-```
-
-### Seed Deterministic Test Data
-
-```bash
-npm run seed
-```
-
-### Ping Service Health Check
-
-```bash
-npm run health
-```
+Not covered by scripts (verify manually / with a browser tool): cross-browser behaviour, true LCP, automated accessibility audit.
 
 ---
 
-## API Reference Guide (Team D BFF — Port 3000)
-
-All public endpoints are mounted under `/api/v1/ui`.
-
-| Category | Endpoint | Method | Required Role | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Auth** | `/session` | `POST` | Public | Authenticate user session & return token |
-| **Auth** | `/session` | `DELETE` | Authenticated | Logout & invalidate current session |
-| **Auth** | `/me` | `GET` | Authenticated | Fetch authenticated user profile & permissions |
-| **Students** | `/students/:studentId` | `GET` | Authenticated | Fetch student profile & Placement Readiness Score |
-| **Students** | `/students/:studentId` | `PATCH` | Student (Self) / Staff | Update academic metrics, skills, resume PDF |
-| **Drives** | `/drives` | `GET` | Authenticated | List placement drives with search & branch filters |
-| **Drives** | `/drives/:driveId` | `GET` | Authenticated | Fetch drive details & eligibility criteria |
-| **Drives** | `/drives` | `POST` | Admin, Faculty | Create new placement drive |
-| **Drives** | `/drives/:driveId` | `PATCH` | Admin, Faculty | Edit placement drive details or state |
-| **Eligibility** | `/eligibility/check/:driveId` | `GET` | Authenticated | Team A criteria breakdown comparison |
-| **Applications** | `/applications` | `POST` | Student | Submit placement application (Idempotent) |
-| **Applications** | `/applications` | `GET` | Authenticated | List applications (Filter by student, drive, state) |
-| **Applications** | `/applications/:id/shortlist` | `POST` | Admin, Faculty | Shortlist application candidate |
-| **Applications** | `/applications/:id/interviews` | `POST` | Admin, Faculty | Schedule/update interview round details |
-| **Applications** | `/applications/:id/offer` | `POST` | Admin, Faculty | Issue formal placement offer with CTC package |
-| **Applications** | `/applications/:id/offer-decision` | `POST` | Student (Self) | Student accepts (`ACCEPT`) or declines offer |
-| **Rankings** | `/rankings` | `GET` | Authenticated | Fetch Team B candidate leaderboard (Anonymized for students) |
-| **Rankings** | `/rankings/preview` | `POST` | Admin, Faculty | Re-evaluate candidate rankings with custom weights |
-| **Notifications** | `/notifications` | `GET` | Authenticated | List recipient-isolated notifications & unread count |
-| **Notifications** | `/notifications/:id/read` | `PATCH` | Authenticated | Mark notification as read |
-| **Stream** | `/stream` | `GET` | Public | Server-Sent Events stream relaying live outbox updates |
-| **Analytics** | `/analytics` | `GET` | Admin, Faculty, TPO | Institutional analytics, KPIs, pipeline, CTC package stats |
-| **Reports** | `/reports/placement-performance` | `GET` | Admin, Faculty, TPO | Placement performance report & telemetry benchmarks |
-| **Reports** | `/reports/export` | `GET` | Admin, Faculty, TPO | Export performance reports in CSV or JSON format |
-| **Audit** | `/audit` | `GET` | Admin, Auditor | Query append-only audit trail logs |
-| **System** | `/system` | `GET` | Public | Microservices cluster health & latency telemetry |
-
----
-
-## Role-Based Access Control (RBAC) Matrix
-
-| Action / Endpoint | Student | Faculty / TPO | Admin | Auditor |
-| :--- | :---: | :---: | :---: | :---: |
-| View Active Placement Drives | ✅ | ✅ | ✅ | ✅ |
-| Check Own Eligibility Breakdown | ✅ | ✅ | ✅ | ✅ |
-| Apply for Placement Drive | ✅ (Self) | ❌ | ❌ | ❌ |
-| View Own Application / Standing | ✅ (Self) | ✅ | ✅ | ✅ |
-| Anonymized Candidate Leaderboard | ✅ | ✅ (Unredacted) | ✅ (Unredacted) | ✅ |
-| Shortlist Candidate | ❌ | ✅ | ✅ | ❌ |
-| Schedule / Update Interview Round | ❌ | ✅ | ✅ | ❌ |
-| Issue Formal Placement Offer | ❌ | ✅ | ✅ | ❌ |
-| Accept / Decline Personal Offer | ✅ (Self) | ❌ | ❌ | ❌ |
-| Create / Edit Placement Drive | ❌ | ✅ | ✅ | ❌ |
-| Institutional Analytics & Reports | ❌ | ✅ | ✅ | ❌ |
-| Export CSV / JSON Reports | ❌ | ✅ | ✅ | ❌ |
-| Query Immutable Audit Trail | ❌ | ❌ | ✅ | ✅ |
-| Monitor Service Health & Telemetry | ✅ | ✅ | ✅ | ✅ |
-
----
-
-## Testing & Quality Assurance
-
-The project includes an extensive automated test suite covering unit, integration, RBAC security, analytics, and workflow scenarios.
-
-### Run All Portal & BFF Tests
-
-```bash
-npm test --prefix services/team-d-portal
-```
-
-### Complete Test Results
+## Project layout
 
 ```
-PASS tests/security.test.js
-PASS tests/portal.test.js
-PASS tests/analytics.test.js
-PASS tests/notifications.test.js
-PASS tests/lifecycle.test.js
-PASS tests/rankings.test.js
-PASS tests/workflow.test.js
-PASS tests/students.test.js
-PASS tests/applications.test.js
-PASS tests/auth.test.js
-PASS tests/drives.test.js
-PASS tests/dashboard.test.js
-PASS tests/error_handling.test.js
-PASS tests/e2e_integration.test.js
-
-Test Suites: 14 passed, 14 total
-Tests:       120 passed, 120 total
-Snapshots:   0 total
-Time:        7.922 s
+shared/                 response envelope, errors, correlation middleware, constants (state machine), signed tokens
+services/team-a-eligibility/   src/{rules,queues,engine,controllers}  tests/
+services/team-b-ranking/       src/{graph,ranking,index,engine}       tests/
+services/team-c-placement/     src/{db,services,controllers,routes,middleware}  data/ (gitignored)  tests/
+services/team-d-portal/        src/bff/…   src/frontend/{css,js/{components,views}}   src/mocks/   tests/
+scripts/                start-all · seed-data · reset-data · health-check · kpi-report
+docs/kpi/               generated KPI evidence
 ```
 
----
-
-## Mock Mode vs Live Production Mode
-
-- **Live Mode (`MOCK_MODE=false`)**: Team D BFF proxies requests directly to Team A (3001), Team B (3002), and Team C (3003). Upstream service errors return structured `503 Service Unavailable` or degraded indicators without swallowing errors.
-- **Mock Mode (`MOCK_MODE=true`)**: In-memory adapters (`mockTeamA`, `mockTeamB`, `mockTeamC`) supply deterministic sample data for frontend development and offline testing.
+See `AI_DEVELOPMENT_GUIDE.md` and `.agents/AGENTS.md` for architecture rules (no external databases or algorithm libraries, team boundaries, shared contracts) and `RIT_Placement_Eligibility_System_Design_APIs_Sequences_KPIs by GSW.md` for the original design.
 
 ---
 
-## Deployment Prerequisites
+## Known limitations
 
-To deploy in a production environment:
+- Team A and B hold their working state in memory (rebuilt from Team C on start-up); only Team C persists data.
+- Authentication is an academic implementation (scrypt-hashed passwords, HMAC-signed tokens) — put TLS and a real identity provider in front for production.
+- Everything runs on one host in the KPI script; the numbers show the algorithms, not a distributed deployment.
 
-1. Deploy microservices (`team-a-eligibility`, `team-b-ranking`, `team-c-placement`, `team-d-portal`) as Node.js systemd daemons or containerized services.
-2. Configure a reverse proxy (e.g. NGINX) for SSL/TLS termination and port routing.
-3. Supply secure production environment variables for `INTERNAL_SERVICE_SECRET` and `JWT_SECRET`.
-4. Ensure persistent disk access for Team C's JSON storage directory (`services/team-c-placement/src/db/data/`).
-
----
-
-## License & Credits
+## License & credits
 
 Developed for **Rajarambapu Institute of Technology (RIT)** — Department of Computer Science & Engineering. Academic Year 2026–27.

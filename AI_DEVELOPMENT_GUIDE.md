@@ -1,140 +1,101 @@
 # APNILEAP — Agent & Developer Guidelines
 
-> **CRITICAL WARNING TO ALL AI AGENTS**: Read this document entirely before making any code changes. This project has strict academic constraints, specific team boundaries, and a custom architecture. **Do NOT use external databases (MongoDB, PostgreSQL, SQLite, etc.) or standard ORMs. Everything must be built from scratch in Vanilla Javascript using custom data structures.**
+> **CRITICAL WARNING TO ALL AI AGENTS**: Read this document entirely before making code changes. The project has strict academic constraints, specific team boundaries and a custom architecture. **Do NOT use external databases (MongoDB, PostgreSQL, SQLite, …), ORMs, or external algorithm/data-structure packages.** Everything is implemented from scratch on Node.js + Express.
 
-## 1. Project Architecture & Monorepo Structure
+## 1. Architecture & monorepo structure
 
-This is a Node.js/Express Monorepo consisting of 4 independent microservices that communicate via HTTP REST APIs.
-
-*   **`shared/`**: Centralized logic. Contains standard HTTP response wrappers (`sendSuccess`), Error classes (`NotFoundError`, `ConflictError`, `ValidationError`, `InvalidTransitionError`), `X-Correlation-ID` middleware, `APPLICATION_STATES` + `VALID_TRANSITIONS` constants, and `DRIVE_STATES`. **All teams MUST use these shared utilities.**
-*   **`services/team-a-eligibility/`**: (Port 3001) Responsible for evaluating student eligibility using **Decision Trees** and processing requests via **Priority Queues**.
-*   **`services/team-b-ranking/`**: (Port 3002) Responsible for matching and ranking students using **Graph Algorithms (Bipartite matching, MST)** and **Tries**.
-*   **`services/team-c-placement/`**: (Port 3003) The Authoritative DBMS Engine. Controls all persistent state.
-*   **`services/team-d-portal/`**: (Port 3000) The Frontend Portal / Backend-for-Frontend.
-
-## 2. Team C's Custom DBMS Engine (IMPORTANT)
-
-Team C acts as the "Database".
-*   **No other team is allowed to write to data files.** Teams A, B, and D **MUST** make HTTP requests to `http://localhost:3003` to fetch or update data.
-*   Data is persisted in `services/team-c-placement/data/tables/*.json`.
-*   Team C implements ACID transactions, a Write-Ahead Log (WAL), Deadlock detection (Wait-For Graph), and secondary indexes (B-Tree and Hash Map). **Do not modify Team C's engine unless you are explicitly assigned to Team C.**
-
-### Team C File Structure
-```
-services/team-c-placement/
-├── server.js                        # Express entry point, DI wiring
-├── data/
-│   ├── tables/                      # Persisted JSON tables
-│   │   ├── students.json
-│   │   ├── companies.json
-│   │   ├── drives.json
-│   │   ├── applications.json
-│   │   ├── eligibility_decisions.json
-│   │   ├── offers.json
-│   │   ├── audit_log.json
-│   │   └── idempotency_keys.json
-│   └── wal/                         # Write-Ahead Log archives
-└── src/
-    ├── db/
-    │   ├── Database.js              # Main facade (TableAPI + index wiring)
-    │   ├── engine/
-    │   │   ├── StorageEngine.js     # JSON file I/O + in-memory cache
-    │   │   ├── WAL.js               # Write-Ahead Log (crash recovery)
-    │   │   ├── LockManager.js       # Row-level locking + deadlock detection
-    │   │   └── TransactionManager.js # ACID transaction orchestration
-    │   ├── indexes/
-    │   │   ├── BTreeIndex.js        # B-Tree for range queries
-    │   │   └── HashIndex.js         # Hash map for equality lookups
-    │   └── schema/
-    │       ├── SchemaManager.js     # 3NF schema, constraints, FK validation
-    │       └── migrations.js        # Schema versioning & migration runner
-    ├── services/
-    │   ├── applicationService.js    # C2: create, get, withdraw, list, transitionState
-    │   ├── auditService.js          # C4: append-only audit log + SSE broadcast
-    │   ├── idempotencyService.js    # Idempotency key store and lookup
-    │   ├── offerService.js          # C3: commitOffer (SELECTED/OFFER_ISSUED), compensate
-    │   ├── recoveryService.js       # C4: WAL recovery verification
-    │   ├── reportService.js         # C4: placement report (branch/drive breakdown, packages)
-    │   ├── sseService.js            # C4: SSE broadcast hub (singleton)
-    │   └── stateMachineService.js   # State transition enforcement
-    ├── controllers/
-    │   ├── applicationController.js # create, list, get, withdraw
-    │   ├── auditController.js       # query
-    │   ├── companyController.js     # create, list, get
-    │   ├── driveController.js       # create, list, get, getCriteria, update
-    │   ├── offerController.js       # commit, compensate
-    │   ├── reportController.js      # getPlacementPerformance, verifyRecovery
-    │   └── studentController.js     # create
-    ├── routes/
-    │   └── index.js                 # All routes wired here
-    └── middleware/
-        ├── auth.js                  # Auth + role guard (stub — wire real JWT for prod)
-        ├── idempotency.js           # checkIdempotency middleware
-        └── validation.js            # validateBody helper
-```
-
-### Team C API Surface (all at `http://localhost:3003`)
-| Method | Endpoint | Notes |
-|--------|----------|-------|
-| `GET`   | `/health` | Health check |
-| `POST`  | `/api/v1/companies` | Create company |
-| `GET`   | `/api/v1/companies` | List companies |
-| `GET`   | `/api/v1/companies/:id` | Get company |
-| `POST`  | `/api/v1/students` | Create student |
-| `POST`  | `/api/v1/drives` | Create drive |
-| `GET`   | `/api/v1/drives` | List drives (`?state=OPEN`) |
-| `GET`   | `/api/v1/drives/:id` | Get drive |
-| `GET`   | `/api/v1/drives/:id/criteria` | Get eligibility criteria |
-| `PATCH` | `/api/v1/internal/drives/:id` | Update drive |
-| `POST`  | `/api/v1/applications` | Create application (idempotent) |
-| `GET`   | `/api/v1/applications` | List (`?student_id`, `?drive_id`, `?state`) |
-| `GET`   | `/api/v1/applications/:id` | Get application |
-| `POST`  | `/api/v1/applications/:id/withdraw` | Withdraw |
-| `POST`  | `/api/v1/internal/offers/commit` | Commit state transition |
-| `POST`  | `/api/v1/internal/offers/compensate` | Compensate failed step |
-| `GET`   | `/api/v1/audit` | Query audit log |
-| `GET`   | `/api/v1/reports/placement-performance` | Placement analytics |
-| `POST`  | `/api/v1/internal/recovery/verify` | WAL recovery check |
-| `GET`   | `/api/v1/stream` | SSE live event stream (Team D connects here) |
-
-## 3. Application State Machine
-
-Defined in `shared/constants.js` (`APPLICATION_STATES`, `VALID_TRANSITIONS`). Enforced by `stateMachineService.js`.
+Four independent Node/Express services in an npm-workspaces monorepo, talking REST (+ SSE) with a shared envelope, `X-Correlation-ID` propagation and idempotency keys.
 
 ```
-APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED
+shared/                         response envelope, errors, correlation, state-machine constants, signed tokens (token.js)
+services/team-a-eligibility/    :3001  OS engine
+services/team-b-ranking/        :3002  DS engine
+services/team-c-placement/      :3003  DBMS + workflow  (authoritative data)
+services/team-d-portal/         :3000  BFF + SPA
+scripts/                        start-all, seed-data, reset-data, health-check, kpi-report
+docs/kpi/                       generated KPI evidence
 ```
-Alternative outcomes (terminal or re-entrant): `NOT_ELIGIBLE`, `WAITLISTED`, `WITHDRAWN`, `EXPIRED`, `COMPENSATION_REQUIRED`
 
-**Only Team C changes authoritative application state** via `POST /internal/offers/commit`.
+### Team A — Eligibility (OS)
+```
+server.js                 routes + engine wiring (buildApp() exported for tests)
+src/rules/                SequentialANDChain, WeightedPriority, DecisionTree, ruleSet.js (criteria → rules; hard vs soft)
+src/queues/               FIFOQueue, CircularQueue, PriorityQueue (min-heap), HeapQueue (max-heap)
+src/engine/RuleEngine.js  strategy runner + reference oracle
+src/engine/Scheduler.js   per-drive queues, round-robin worker, policy switch, aging (no starvation), request store
+src/engine/LockManager.js exclusive/shared slot leases, lease expiry, wait-for graph, deadlock detect/prevent/analyse
+src/engine/Metrics.js     p50/p95/p99, throughput, waits per priority
+src/engine/benchmark.js   strategy comparison, 10k-way slot safety, seeded deadlock cycles
+```
+Team A never reads master data: Team C/D send `{student, criteria}` snapshots.
 
-## 4. Strict Rules for AI Agents
+### Team B — Ranking (DS)
+```
+src/graph/                AdjacencyList (baseline), AdjacencyMatrix (comparison)
+src/ranking/              WeightedScore, HeapTopK, MergeSort, compare.js (tie-break: score DESC, student_id ASC)
+src/index/                AVLTree, HashIndex (chaining, FNV-1a), Trie
+src/engine/ProfileRegistry.js  versioned students/drives/skills graph (graph_version gN)
+src/engine/RankingEngine.js    compute (weights validated, disqualification, cache, shortlist index), lookups, metrics
+src/engine/RankingCache.js     key includes graph_version → stale entries unservable; invalidate by drive
+src/engine/analytics.js        department trend, company conversion, package histogram, skill gap + complexity evidence
+src/engine/benchmark.js        latency/optimality/AVL-vs-hash/list-vs-matrix/cache
+```
 
-1.  **Respect Team Boundaries**: If you are assigned to help Team A, you are NOT allowed to modify Team B or Team C code. If Team A needs data, write a `fetch()` or `axios` call to Team C's API. Do not import Team C's `Database.js` into Team A.
-2.  **No External Databases**: Do not install `mongoose`, `sqlite3`, `pg`, `sequelize`, or `redis`. Data persistence is handled purely by Team C's JSON engine.
-3.  **Use Data Structures from Scratch**: If a feature requires sorting, searching, or queuing, implement the pure Computer Science data structure from scratch (e.g., `PriorityQueue`, `AdjacencyList`, `BTreeIndex`). Do not rely on external NPM packages for core logic.
-4.  **Use Shared Correlation IDs**: Every HTTP request across services MUST pass the `X-Correlation-ID` header. Use the `sendSuccess` and `errorHandler` functions from the `shared/` folder to ensure responses are standardized.
-5.  **State Machine Compliance**: An application goes through strict states — see Section 3 above. Do not arbitrarily change strings. Rely on `shared/constants.js` and Team C's `stateMachineService.js`.
-6.  **Living Documentation**: You MUST update this `AI_DEVELOPMENT_GUIDE.md` and `.agents/AGENTS.md` whenever significant architectural changes, new services, or structural modifications are made to accurately reflect the current state of the project.
+### Team C — Placement DBMS & workflow
+```
+server.js                 DI wiring; startServer({dataDir, listen}) for tests; auto-seed; profile sync to Team B
+data/                     tables/*.json, wal/, backups/ (runtime, gitignored)
+src/db/                   Database (TableAPI + transactionIndexed + lookupBy), engine/{StorageEngine,WAL,LockManager,TransactionManager}, indexes/{BTreeIndex,HashIndex}, schema/{SchemaManager,migrations}
+src/services/             applicationService (idempotent create under logical locks)
+                          workflowService (pipeline + every state transition + seats + interview leases + compensation)
+                          offerService (commit/compensate API), authService (scrypt, tokens), notificationService,
+                          auditService, idempotencyService, reportService (indexed queries, reconciliation),
+                          recoveryService (WAL verify, backup, verify-restore), seedService, engineClients (HTTP → A/B), sseService
+src/controllers|routes|middleware   thin HTTP layer; auth.js accepts signed tokens OR trusted-service headers
+```
+Tables: students, companies, drives, applications, eligibility_decisions, offers, interviews, users, announcements, notifications, audit_log, idempotency_keys. Migrations v1–v3.
 
-## 5. Development Commands
+**Database rules**: use `db.transactionIndexed(fn)` for multi-table writes (schema + FK + unique validation and index maintenance); use `txn.lock(resource)` / `txn.readForUpdate()` for check-then-write sequences to avoid races and S→X upgrade deadlocks; use `db.lookupBy(table, field, key)` for hash-indexed equality reads.
 
-*   `npm run start:all` - Boots all 4 microservices simultaneously.
-*   `npm run start:a`  - Start only Team A (port 3001).
-*   `npm run start:b`  - Start only Team B (port 3002).
-*   `npm run start:c`  - Start only Team C (port 3003).
-*   `npm run start:d`  - Start only Team D (port 3000).
-*   `npm run seed`     - Pre-populates the database with deterministic test data.
-*   `npm run health`   - Pings all 4 services to ensure they are alive.
-*   `npm run test:c`   - Runs Team C's test suite.
+### Team D — Portal
+```
+server.js                          static SPA (no-cache), /api/v1/ui, JSON 404 for unknown /api routes
+src/bff/                           routes/uiRoutes.js (role guards + rate limiters), controllers/, services/{teamA,teamB,teamC}Client,
+                                   applicationService (details + timeline from audit), dashboardService, analyticsService,
+                                   rankingService, sseProxyService (named events → typed JSON, per-recipient notification filtering),
+                                   utils/degraded.js (meta.degraded), middleware/auth.js (signed tokens)
+src/mocks/                         mock adapters (only when MOCK_TEAM_x=true)
+src/frontend/                      index.html, css/{main,components,layout}.css, js/{api,state,sse,router,app}.js,
+                                   js/components/{ui,navbar,…}, js/views/{loginView,accountView,student/*,faculty/*,admin/*}
+tests/                             supertest suites run against the mocks (tests/setupEnv.js)
+```
 
-## 6. Idempotency & Concurrency
+## 2. Strict rules for AI agents
+1. **Respect team boundaries.** Only Team C writes data files. Teams A, B, D never import Team C's `Database.js`; they use HTTP.
+2. **No external databases / algorithm packages.** Core logic must be hand-written.
+3. **Shared contracts.** Use `shared/` for responses, errors, correlation IDs, constants and tokens; never hard-code state strings — use `shared/constants.js`.
+4. **State machine compliance.** Only Team C changes application state, through `WorkflowService`. New transitions go in `shared/constants.js` **and** `workflowService.PERMISSIONS` **and** (if they have side-effects) the `_commit` hooks; add tests.
+5. **No silent fakes.** The BFF must not fabricate success. Mocks only behind `MOCK_*` flags; fallbacks must call `degraded.mark()`.
+6. **HTML safety.** The SPA escapes all server text with `esc()`; do not store pre-escaped HTML in the database.
+7. **Provenance tags** (`components.teamTag`) on every new page/card.
+8. **Living documentation**: update this file, `.agents/AGENTS.md` and `README.md` for structural changes.
 
-Team C has implemented an `Idempotency-Key` requirement for state-mutating requests (like creating an application). If you are building a service in Team A or Team D that sends POST requests to Team C, ensure you generate and pass an `Idempotency-Key` header to prevent duplicate side effects. Retrying with the same key returns the original response without creating a duplicate record.
+## 3. Application state machine
+`APPLIED → SCREENING → RULE_EVALUATED → SHORTLISTED → INTERVIEW_SCHEDULED → SELECTED → OFFER_ISSUED → OFFER_ACCEPTED`, with `NOT_ELIGIBLE`, `WAITLISTED`, `REJECTED`, `WITHDRAWN`, `OFFER_DECLINED`, `EXPIRED`, `COMPENSATION_REQUIRED`. Defined in `shared/constants.js`; role permissions per target in `workflowService.PERMISSIONS` (students: withdraw, accept/decline own offer; staff: shortlist/waitlist/reject/interview/select/offer).
 
-## 7. SSE Event Stream
+Orchestration (`WorkflowService.runPipeline`): `APPLIED → SCREENING` → Team A evaluate (idempotent `REQ-<applicationId>`) → decision row + `RULE_EVALUATED | NOT_ELIGIBLE` → Team B rank (stores `ranking_id`, `rank`, `rank_score`; failure ⇒ `ranking_status: DEGRADED`). Team A down ⇒ application stays `SCREENING` with `pipeline_status: EVALUATION_PENDING`, retried via `/reevaluate` or at start-up. Interview scheduling takes an exclusive Team A lease **before** the DB commit and releases it if the commit fails (compensation, audited).
 
-Team C exposes a Server-Sent Events stream at `GET /api/v1/stream`. After every data mutation, `auditService.js` broadcasts an `audit` event to all connected clients. Team D should connect to this endpoint for live dashboard updates. A `:heartbeat` comment is sent every 15 seconds to keep connections alive through proxies.
+## 4. Authentication
+`users` table (scrypt hash + salt). `POST /auth/login` returns an HMAC-signed token (`shared/token.js`, 8 h). The BFF verifies tokens and forwards the acting user to Team C as `X-Actor-*` headers behind `X-Internal-Secret`; Team C re-checks role permissions. `NODE_ENV=test` (or `ALLOW_DEV_TOKENS=true`) additionally accepts legacy `role_id` tokens for the unit tests.
+
+## 5. Development commands
+`npm run start:all|start:a|b|c|d` · `npm run seed [-- --force]` · `npm run reset` · `npm run health` · `npm test` · `npm run test:a|b|c|d` · `npm run kpi`
+
+## 6. Idempotency & concurrency
+Applications: `Idempotency-Key` header/body key stored with the *final* outcome; a per-key lock plus a per-(student, drive) lock make duplicates impossible under concurrency (verified with 10,000 concurrent attempts in `npm run kpi`). State changes use optimistic `expected_version` (409 on mismatch) and row-level exclusive locks.
+
+## 7. SSE event stream
+Team C `GET /api/v1/stream` emits named events (`audit`, `state_change`, `notification`). The BFF `GET /api/v1/ui/stream?token=…` relays them as typed JSON messages (`{type, …}`), sends a 15 s `heartbeat` message, and delivers `notification` events only to their recipient. The SPA marks the stream stale when no heartbeat arrives and silently re-renders live views (debounced).
 
 ---
-*By strictly following these boundaries, Teams A, B, C, and D can develop their complex data structure algorithms independently without corrupting the global state.*
+*By strictly following these boundaries, Teams A, B, C and D can develop their algorithms independently without corrupting global state.*

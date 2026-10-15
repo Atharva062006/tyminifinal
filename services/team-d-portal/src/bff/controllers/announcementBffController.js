@@ -1,29 +1,20 @@
 /**
- * Team D BFF Announcement Controller.
+ * Team D BFF Announcement Controller — announcements are stored by Team C and fan out as notifications.
  */
 const teamCClient = require('../services/teamCClient');
 const { sendSuccess } = require('../utils/apiResponse');
 
 class AnnouncementBffController {
-  // GET /api/v1/ui/announcements
   list = async (req, res, next) => {
-    try {
-      const announcements = await teamCClient.listAnnouncements(req.correlationId);
-      sendSuccess(res, announcements, req.correlationId);
-    } catch (err) {
-      next(err);
-    }
+    try { sendSuccess(res, await teamCClient.listAnnouncements(req.correlationId), req.correlationId); } catch (err) { next(err); }
   };
 
-  // POST /api/v1/ui/announcements
   create = async (req, res, next) => {
-    try {
-      const authHeader = req.headers.authorization;
-      const created = await teamCClient.createAnnouncement(req.body, req.correlationId, authHeader);
-      sendSuccess(res, created, req.correlationId, 201);
-    } catch (err) {
-      next(err);
-    }
+    try { sendSuccess(res, await teamCClient.createAnnouncement(req.body || {}, req.correlationId, req.user.actor), req.correlationId, 201); } catch (err) { next(err); }
+  };
+
+  remove = async (req, res, next) => {
+    try { sendSuccess(res, await teamCClient.deleteAnnouncement(req.params.id, req.correlationId, req.user.actor), req.correlationId); } catch (err) { next(err); }
   };
 }
 

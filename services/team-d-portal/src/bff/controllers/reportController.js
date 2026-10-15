@@ -16,13 +16,13 @@ class ReportController {
   getAnalytics = async (req, res, next) => {
     try {
       const correlationId = req.correlationId;
-      const authHeader = req.user?.authHeader || 'Bearer admin_ADM001';
+      const actor = req.user?.actor;
 
       if (req.user && req.user.role === 'student') {
         throw new ForbiddenError('Students are not authorized to view institutional analytics');
       }
 
-      const analytics = await analyticsService.getComprehensiveAnalytics(req.query, correlationId, authHeader);
+      const analytics = await analyticsService.getComprehensiveAnalytics(req.query, correlationId, actor);
       sendSuccess(res, analytics, correlationId);
     } catch (err) {
       next(err);
@@ -36,14 +36,14 @@ class ReportController {
   getPlacementPerformance = async (req, res, next) => {
     try {
       const correlationId = req.correlationId;
-      const authHeader = req.user?.authHeader || 'Bearer admin_ADM001';
+      const actor = req.user?.actor;
 
       if (req.user && req.user.role === 'student') {
         throw new ForbiddenError('Students are not authorized to view placement performance reports');
       }
 
       const [report, aMetrics, bMetrics] = await Promise.all([
-        teamC.getPlacementPerformance(req.query, correlationId, authHeader),
+        teamC.getPlacementPerformance(req.query, correlationId, actor),
         teamA.getMetrics(correlationId).catch(() => ({ metrics: {} })),
         teamB.getMetrics(correlationId).catch(() => ({ metrics: {} }))
       ]);
@@ -71,14 +71,14 @@ class ReportController {
   exportReport = async (req, res, next) => {
     try {
       const correlationId = req.correlationId;
-      const authHeader = req.user?.authHeader || 'Bearer admin_ADM001';
+      const actor = req.user?.actor;
       const { type = 'placement_performance', format = 'csv' } = req.query;
 
       if (req.user && req.user.role === 'student') {
         throw new ForbiddenError('Students are not authorized to export placement reports');
       }
 
-      const analytics = await analyticsService.getComprehensiveAnalytics(req.query, correlationId, authHeader);
+      const analytics = await analyticsService.getComprehensiveAnalytics(req.query, correlationId, actor);
 
       if (format === 'json') {
         res.setHeader('Content-Type', 'application/json');
@@ -137,13 +137,13 @@ class ReportController {
   queryAudit = async (req, res, next) => {
     try {
       const correlationId = req.correlationId;
-      const authHeader = req.user?.authHeader || 'Bearer admin_ADM001';
+      const actor = req.user?.actor;
 
       if (req.user && req.user.role === 'student') {
         throw new ForbiddenError('Students are not authorized to access audit logs');
       }
 
-      const auditData = await teamC.queryAudit(req.query, correlationId, authHeader);
+      const auditData = await teamC.queryAudit(req.query, correlationId, actor);
       sendSuccess(res, auditData, correlationId);
     } catch (err) {
       next(err);

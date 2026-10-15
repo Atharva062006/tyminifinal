@@ -9,6 +9,7 @@ class MockTeamB {
   constructor() {
     this.rankings = new Map();
     this.metrics = {
+      mock: true,
       p95_ranking_latency_ms: 32,
       graph_version: '2.1.0',
       total_edges: 450,
@@ -42,6 +43,11 @@ class MockTeamB {
         cgpa: c.cgpa,
         total_score: score,
         skill_match_pct: Math.min(Math.round(skillScore * 250), 100),
+        score_breakdown: {
+          cgpa_component: parseFloat(cgpaScore.toFixed(4)),
+          skills_component: parseFloat(skillScore.toFixed(4)),
+          attendance_component: parseFloat(attendanceScore.toFixed(4))
+        },
         algorithm: algorithm,
         tie_break_priority: c.student_id
       };
